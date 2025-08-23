@@ -1,38 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Notion Feed Widget</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #feed { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
-    .item { border: 1px solid #ddd; padding: 10px; text-align: center; }
-    .item img { max-width: 100%; height: auto; border-radius: 8px; }
+    :root { --gap: 8px; --radius: 12px; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    header { display:flex; justify-content:flex-end; padding:10px; border-bottom:1px solid #eee; position:sticky; top:0; background:#fff; z-index:2; }
+    button { padding:6px 12px; border:1px solid #e5e5e5; border-radius:10px; background:#fafafa; cursor:pointer; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap); padding:var(--gap); }
+    .card { position:relative; overflow:hidden; border-radius:var(--radius); aspect-ratio:1/1; background:#f5f5f5; }
+    .media { width:100%; height:100%; object-fit:cover; display:block; border:0; background:#000; }
+    .badge { position:absolute; left:8px; top:8px; background:rgba(0,0,0,.6); color:#fff; font-size:12px; padding:2px 6px; border-radius:999px; }
+    .pin { position:absolute; right:8px; top:8px; font-size:16px; }
+    .hover { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:8px; text-align:center; color:#fff; background:rgba(0,0,0,.45); opacity:0; transition:opacity .18s ease; }
+    .card:hover .hover { opacity:1; }
+    @media (max-width:900px){ .grid{ grid-template-columns:repeat(2,1fr);} }
+    @media (max-width:600px){ .grid{ grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
-  <button onclick="loadFeed()">🔄 Refresh</button>
-  <div id="feed"></div>
+  <header>
+    <button id="refreshBtn">⟲ Refresh</button>
+  </header>
+
+  <main id="grid" class="grid"></main>
 
   <script>
-    async function loadFeed() {
-      const res = await fetch("/api/notion");
-      const data = await res.json();
+    const isVideo = (url) => /\.(mp4|mov|webm|m4v|ogg)(\?|$)/i.test(url);
+    const isImage = (url) => /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(url);
+    const toCanvaEmbed = (url) => {
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes("canva.com")) {
+          if (!u.searchParams.get("embed")) u.searchParams.set("embed","1");
+        }
+        return u.toString();
+      } catch { return url; }
+    };
 
-      const container = document.getElementById("feed");
-      container.innerHTML = "";
+    function thumbElement(source, url) {
+      if (source === "Canva Design") {
+        const iframe = document.createElement("iframe");
+        iframe.src = toCanvaEmbed(url);
+        iframe.className = "media";
+        iframe.loading = "lazy";
+        iframe.allowFullscreen = true;
+        return iframe;
+      }
+      if (isVideo(url)) {
+        const v = document.createElement("video");
+        v.src = url; v.className = "media"; v.muted = true; v.playsInline = true; v.autoplay = true; v.loop = true;
+        return v;
+      }
+      const img = document.createElement("img");
+      img.src = url; img.className = "media"; img.alt = "";
+      img.referrerPolicy = "no-referrer"; // helps Notion signed URLs
+      return img;
+    }
 
-      data.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "item";
-        div.innerHTML = `
-          <h4>${item.name}</h4>
-          <p>${item.publishDate || ""}</p>
-          ${item.imageSource ? `<img src="${item.imageSource}" alt="">` : ""}
-        `;
-        container.appendChild(div);
+    async function load() {
+      const res = await fetch("/api/notion", { cache: "no-store" });
+      const payload = await res.json();
+      const items = payload.items || [];
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      items.forEach((it) => {
+        const url = it.media[0]; // first media item as thumbnail
+        if (!url) return;
+
+        const card = document.createElement("div");
+        card.className = "card";
+
+        if (it.status) {
+          const badge = document.createElement("div");
+          badge.className = "badge";
+          badge.textContent = it.status;
+          card.appendChild(badge);
+        }
+        if (it.pinned) {
+          const pin = document.createElement("div");
+          pin.className = "pin";
+          pin.textContent = "📌";
+          card.appendChild(pin);
+        }
+
+        const el = thumbElement(it.source, url);
+        const hover = document.createElement("div");
+        hover.className = "hover";
+        hover.textContent = it.name || "";
+
+        card.appendChild(el);
+        card.appendChild(hover);
+        grid.appendChild(card);
       });
     }
+
+    document.getElementById("refreshBtn").addEventListener("click", load);
+    load();
   </script>
 </body>
 </html>
