@@ -5,87 +5,59 @@ const notion = new Client({ auth: process.env.NOTION_SECRET });
 export default async function handler(req, res) {
   try {
     const databaseId = process.env.NOTION_DATABASE_ID;
-
-    // Optional filter: /api/notion?platform=Instagram
-    const url = new URL(req.url, "http://localhost");
-    const platformFilter = url.searchParams.get("platform");
-
-    const filter = {
-      and: [
-        { property: "Hide", checkbox: { equals: false } },
-        ...(platformFilter
-          ? [{ property: "Platform", select: { equals: platformFilter } }]
-          : []),
-      ],
-    };
-
-    const query = await notion.databases.query({
+    const response = await notion.databases.query({
       database_id: databaseId,
-      filter,
       sorts: [
-        { property: "Pinned", direction: "descending" },
-        { property: "Publish Date", direction: "descending" },
+        {
+          property: "Publish Date",
+          direction: "descending",
+        },
       ],
-      page_size: 100,
     });
 
-    const items = query.results.map((page) => {
-      const p = page.properties || {};
+    // Format into array
+    const items = response.results.map((page) => {
+      const props = page.properties;
 
+      // Handle name + date safely
       const name =
-        p["Name"]?.title?.[0]?.plain_text ??
-        p["Name"]?.title?.map((t) => t.plain_text).join("") ??
-        "Untitled";
+        props["Name"]?.title?.[0]?.plain_text || "Untitled";
+      const publishDate =
+        props["Publish Date"]?.date?.start || null;
 
-      const publishDate = p["Publish Date"]?.date?.start ?? null;
-      const imageSource = p["Image Source"]?.select?.name ?? "Image Attachment";
-      const pinned = !!p["Pinned"]?.checkbox;
-      const hide = !!p["Hide"]?.checkbox;
-      const platform = p["Platform"]?.select?.name ?? null;
-      const status =
-        p["Status"]?.select?.name || p["Status"]?.status?.name || null;
+      // Handle platform safely
+      const platform = props["Platform"]?.multi_select?.map(p => p.name) || [];
 
-      // files from Attachment
-      const attachments =
-        (p["Attachment"]?.files ?? [])
-          .map((f) => f.file?.url || f.external?.url)
-          .filter(Boolean) || [];
+      // Handle image sources
+      const sourceType = props["Image Source"]?.select?.name || null;
 
-      // multiple URLs in Link (newline separated)
-      const linkText =
-        (p["Link"]?.rich_text ?? [])
-          .map((t) => t.plain_text)
-          .join("\n") || "";
-      const links = linkText
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      const canva = p["Canva Link"]?.url || "";
-
-      // choose media by Image Source
+      // Collect all media from different fields
       let media = [];
-      if (imageSource === "Image Attachment") media = attachments;
-      else if (imageSource === "Link") media = links;
-      else if (imageSource === "Canva Design" && canva) media = [canva];
+
+      if (sourceType === "Image Attachment" && props["Attachment"]?.files) {
+        media = props["Attachment"].files.map(f => f.file?.url || f.external?.url).filter(Boolean);
+      }
+
+      if (sourceType === "Link" && props["Link"]?.url) {
+        media.push(props["Link"].url);
+      }
+
+      if (sourceType === "Canva Design" && props["Canva Link"]?.url) {
+        media.push(props["Canva Link"].url);
+      }
 
       return {
         id: page.id,
         name,
         publishDate,
-        pinned,
-        hide,
         platform,
-        status,
-        source: imageSource,
-        media, // array of URLs
+        media,
       };
     });
 
-    const visible = items.filter((it) => !it.hide && it.media.length);
-    res.status(200).json({ items: visible });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch data from Notion" });
+    res.status(200).json({ items });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch from Notion" });
   }
 }
