@@ -2,42 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Notion Feed Widget</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #refresh { padding: 8px 16px; margin-bottom: 20px; cursor: pointer; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .card img { width: 100%; border-radius: 8px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #feed { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+    .item { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    .item img { max-width: 100%; height: auto; border-radius: 8px; }
   </style>
 </head>
 <body>
-  <button id="refresh">🔄 Refresh</button>
-  <div id="feed" class="grid"></div>
+  <button onclick="loadFeed()">🔄 Refresh</button>
+  <div id="feed"></div>
 
   <script>
     async function loadFeed() {
-      const res = await fetch('/api/notion');
+      const res = await fetch("/api/notion");
       const data = await res.json();
-      const feed = document.getElementById('feed');
-      feed.innerHTML = '';
+
+      const container = document.getElementById("feed");
+      container.innerHTML = "";
 
       data.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <a href="${item.link || '#'}" target="_blank">
-            <img src="${item.imageSource}" alt="${item.name}">
-          </a>
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+          <h4>${item.name}</h4>
+          <p>${item.publishDate || ""}</p>
+          ${item.imageSource ? `<img src="${item.imageSource}" alt="">` : ""}
         `;
-        feed.appendChild(card);
+        container.appendChild(div);
       });
     }
-
-    document.getElementById('refresh').addEventListener('click', loadFeed);
-
-    // Load feed immediately
-    loadFeed();
   </script>
 </body>
 </html>
