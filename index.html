@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notion Feed Widget</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #refresh { padding: 8px 16px; margin-bottom: 20px; cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .card img { width: 100%; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <button id="refresh">🔄 Refresh</button>
+  <div id="feed" class="grid"></div>
+
+  <script>
+    async function loadFeed() {
+      const res = await fetch('/api/notion');
+      const data = await res.json();
+      const feed = document.getElementById('feed');
+      feed.innerHTML = '';
+
+      data.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <a href="${item.link || '#'}" target="_blank">
+            <img src="${item.imageSource}" alt="${item.name}">
+          </a>
+        `;
+        feed.appendChild(card);
+      });
+    }
+
+    document.getElementById('refresh').addEventListener('click', loadFeed);
+
+    // Load feed immediately
+    loadFeed();
+  </script>
+</body>
+</html>
