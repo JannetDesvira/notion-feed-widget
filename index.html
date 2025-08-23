@@ -5,42 +5,146 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Notion Feed Widget</title>
   <style>
-    :root { --gap: 8px; --radius: 12px; }
-    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-    header { display:flex; justify-content:flex-end; padding:10px; border-bottom:1px solid #eee; position:sticky; top:0; background:#fff; z-index:2; }
-    button { padding:6px 12px; border:1px solid #e5e5e5; border-radius:10px; background:#fafafa; cursor:pointer; }
-    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap); padding:var(--gap); }
-    .card { position:relative; overflow:hidden; border-radius:var(--radius); aspect-ratio:1/1; background:#f5f5f5; }
+    :root{
+      /* Tweak these to match your aesthetic */
+      --gap: 8px;            /* space between tiles */
+      --radius: 12px;        /* tile rounding */
+      --shadow: 0 1px 2px rgba(0,0,0,.06), 0 6px 18px rgba(0,0,0,.06);
+      --accent: #111;        /* header text */
+      --muted: #777;         /* subtle text */
+      --border: #ececec;     /* hairline */
+    }
+
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:#111; }
+
+    /* HEADER */
+    header {
+      display:flex; align-items:center; gap:10px;
+      padding:10px; border-bottom:1px solid var(--border);
+      position:sticky; top:0; background:#fff; z-index:5;
+    }
+    .brand { font-weight:600; color:var(--accent); margin-right:auto; font-size:14px; opacity:.9; }
+    select, button {
+      height:32px; padding:0 10px; border:1px solid var(--border); border-radius:10px; background:#fafafa; cursor:pointer; font-size:13px;
+    }
+    button:hover, select:hover { background:#f3f3f3; }
+
+    /* GRID */
+    main { padding:var(--gap); }
+    .grid {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap);
+    }
+    @media (max-width:900px){ .grid { grid-template-columns:repeat(2,1fr);} }
+    @media (max-width:600px){ .grid { grid-template-columns:1fr; } }
+
+    .card {
+      position:relative; overflow:hidden; border-radius:var(--radius);
+      aspect-ratio:1/1; background:#f5f5f5; box-shadow:var(--shadow);
+    }
     .media { width:100%; height:100%; object-fit:cover; display:block; border:0; background:#000; }
+    .pin { position:absolute; right:8px; top:8px; font-size:16px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
     .badge { position:absolute; left:8px; top:8px; background:rgba(0,0,0,.6); color:#fff; font-size:12px; padding:2px 6px; border-radius:999px; }
-    .pin { position:absolute; right:8px; top:8px; font-size:16px; }
-    .hover { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:8px; text-align:center; color:#fff; background:rgba(0,0,0,.45); opacity:0; transition:opacity .18s ease; }
+    .hover {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      padding:8px; text-align:center; color:#fff; background:rgba(0,0,0,.42);
+      opacity:0; transition:opacity .18s ease;
+    }
     .card:hover .hover { opacity:1; }
-    @media (max-width:900px){ .grid{ grid-template-columns:repeat(2,1fr);} }
-    @media (max-width:600px){ .grid{ grid-template-columns:1fr;} }
+
+    /* LIGHTBOX */
+    .lightbox {
+      position:fixed; inset:0; background:rgba(0,0,0,.9);
+      display:none; align-items:center; justify-content:center; z-index:9999;
+    }
+    .lightbox.open { display:flex; }
+    .lb-inner { width:min(94vw, 900px); height:min(90vh, 900px); position:relative; }
+    .slide { position:absolute; inset:0; display:none; }
+    .slide.active { display:block; }
+    .lb-media { width:100%; height:100%; object-fit:contain; background:#000; border:0; }
+    .lb-close, .nav {
+      position:absolute; top:12px; background:rgba(255,255,255,.12);
+      color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:12px; padding:6px 10px; cursor:pointer;
+      backdrop-filter: blur(6px);
+    }
+    .lb-close { right:12px; }
+    .nav { top:50%; transform:translateY(-50%); }
+    .prev { left:10px; }
+    .next { right:10px; }
+    .lb-counter {
+      position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+      color:#fff; font-size:13px; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:999px;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top:1px solid var(--border); padding:10px; text-align:center; color:var(--muted); font-size:12px;
+    }
+    footer a { color:inherit; text-decoration:none; border-bottom:1px dotted currentColor; }
   </style>
 </head>
 <body>
   <header>
+    <div class="brand" id="brand" hidden>Feed Preview</div>
+
+    <!-- Platform Filter -->
+    <label style="font-size:12px;color:var(--muted)">Platform</label>
+    <select id="platform">
+      <option value="">All</option>
+      <option>Instagram</option>
+      <option>Tiktok</option>
+      <option>Facebook</option>
+      <option>Pinterest</option>
+      <option>X</option>
+      <option>LinkedIn</option>
+      <option>Others</option>
+    </select>
+
+    <!-- Refresh -->
     <button id="refreshBtn">⟲ Refresh</button>
   </header>
 
-  <main id="grid" class="grid"></main>
+  <main>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <!-- Optional footer (toggle with SHOW_FOOTER) -->
+  <footer id="footer" style="display:none">
+    Powered by <a href="#" target="_blank" rel="noreferrer">you</a>
+  </footer>
+
+  <!-- LIGHTBOX -->
+  <div id="lightbox" class="lightbox" aria-modal="true" role="dialog">
+    <div class="lb-inner">
+      <button class="lb-close" id="lbClose">✕</button>
+      <button class="nav prev" id="lbPrev">‹</button>
+      <button class="nav next" id="lbNext">›</button>
+      <div id="lbSlides"></div>
+      <div class="lb-counter" id="lbCounter"></div>
+    </div>
+  </div>
 
   <script>
+    /********** CONFIG **********/
+    const SHOW_FOOTER = false;       // set true to show footer
+    const FOOTER_TEXT = "Powered by You";
+    const FOOTER_LINK = "";          // put your URL if you want the footer clickable
+
+    /********** HELPERS **********/
     const isVideo = (url) => /\.(mp4|mov|webm|m4v|ogg)(\?|$)/i.test(url);
     const isImage = (url) => /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(url);
+
     const toCanvaEmbed = (url) => {
       try {
         const u = new URL(url);
-        if (u.hostname.includes("canva.com")) {
-          if (!u.searchParams.get("embed")) u.searchParams.set("embed","1");
+        if (u.hostname.includes("canva.com") && !u.searchParams.get("embed")) {
+          u.searchParams.set("embed","1");
         }
         return u.toString();
       } catch { return url; }
     };
 
-    function thumbElement(source, url) {
+    function makeThumbEl(source, url) {
       if (source === "Canva Design") {
         const iframe = document.createElement("iframe");
         iframe.src = toCanvaEmbed(url);
@@ -52,53 +156,160 @@
       if (isVideo(url)) {
         const v = document.createElement("video");
         v.src = url; v.className = "media"; v.muted = true; v.playsInline = true; v.autoplay = true; v.loop = true;
+        v.controls = false;
         return v;
       }
       const img = document.createElement("img");
       img.src = url; img.className = "media"; img.alt = "";
-      img.referrerPolicy = "no-referrer"; // helps Notion signed URLs
+      img.referrerPolicy = "no-referrer";
       return img;
     }
 
+    function makeLightboxEl(source, url) {
+      if (source === "Canva Design") {
+        const iframe = document.createElement("iframe");
+        iframe.src = toCanvaEmbed(url);
+        iframe.className = "lb-media";
+        iframe.loading = "lazy";
+        iframe.allowFullscreen = true;
+        return iframe;
+      }
+      if (isVideo(url)) {
+        const v = document.createElement("video");
+        v.src = url; v.className = "lb-media"; v.controls = true; v.playsInline = true;
+        return v;
+      }
+      const img = document.createElement("img");
+      img.src = url; img.className = "lb-media"; img.alt = "";
+      img.referrerPolicy = "no-referrer";
+      return img;
+    }
+
+    /********** LIGHTBOX STATE **********/
+    const lb = {
+      root: document.getElementById("lightbox"),
+      slidesWrap: document.getElementById("lbSlides"),
+      counterEl: document.getElementById("lbCounter"),
+      idx: 0,
+      slides: [],
+      open(slides, startIdx=0){
+        this.slides = slides;
+        this.idx = startIdx;
+        this.slidesWrap.innerHTML = "";
+        slides.forEach((s, i) => {
+          const slide = document.createElement("div");
+          slide.className = "slide" + (i===startIdx ? " active" : "");
+          slide.appendChild(makeLightboxEl(s.source, s.url));
+          this.slidesWrap.appendChild(slide);
+        });
+        this.updateCounter();
+        this.root.classList.add("open");
+      },
+      close(){
+        this.root.classList.remove("open");
+        this.slidesWrap.innerHTML = "";
+      },
+      next(){ this.goto((this.idx+1) % this.slides.length); },
+      prev(){ this.goto((this.idx-1+this.slides.length) % this.slides.length); },
+      goto(i){
+        const nodes = this.slidesWrap.querySelectorAll(".slide");
+        if (!nodes.length) return;
+        nodes[this.idx]?.classList.remove("active");
+        nodes[i]?.classList.add("active");
+        this.idx = i;
+        this.updateCounter();
+      },
+      updateCounter(){
+        this.counterEl.textContent = `${this.idx+1} / ${this.slides.length}`;
+      }
+    };
+
+    document.getElementById("lbClose").addEventListener("click", () => lb.close());
+    document.getElementById("lbNext").addEventListener("click", () => lb.next());
+    document.getElementById("lbPrev").addEventListener("click", () => lb.prev());
+    document.addEventListener("keydown", (e) => {
+      if (!lb.root.classList.contains("open")) return;
+      if (e.key === "Escape") lb.close();
+      if (e.key === "ArrowRight") lb.next();
+      if (e.key === "ArrowLeft") lb.prev();
+    });
+    lb.root.addEventListener("click", (e) => {
+      if (e.target === lb.root) lb.close();
+    });
+
+    /********** DATA LOAD **********/
+    const grid = document.getElementById("grid");
+    const platformSel = document.getElementById("platform");
+
+    // Restore saved platform
+    const saved = localStorage.getItem("widget-platform");
+    if (saved) platformSel.value = saved;
+
     async function load() {
-      const res = await fetch("/api/notion", { cache: "no-store" });
-      const payload = await res.json();
-      const items = payload.items || [];
-      const grid = document.getElementById("grid");
+      const params = new URLSearchParams();
+      if (platformSel.value) params.set("platform", platformSel.value);
+      const res = await fetch("/api/notion" + (params.toString() ? `?${params}` : ""), { cache: "no-store" });
+      const { items = [] } = await res.json();
+
       grid.innerHTML = "";
 
       items.forEach((it) => {
-        const url = it.media[0]; // first media item as thumbnail
-        if (!url) return;
+        const first = it.media[0];
+        if (!first) return;
 
         const card = document.createElement("div");
         card.className = "card";
-
-        if (it.status) {
-          const badge = document.createElement("div");
-          badge.className = "badge";
-          badge.textContent = it.status;
-          card.appendChild(badge);
-        }
         if (it.pinned) {
           const pin = document.createElement("div");
-          pin.className = "pin";
-          pin.textContent = "📌";
+          pin.className = "pin"; pin.textContent = "📌";
           card.appendChild(pin);
         }
+        if (it.status) {
+          const badge = document.createElement("div");
+          badge.className = "badge"; badge.textContent = it.status;
+          card.appendChild(badge);
+        }
 
-        const el = thumbElement(it.source, url);
+        const el = makeThumbEl(it.source, first);
         const hover = document.createElement("div");
         hover.className = "hover";
         hover.textContent = it.name || "";
 
         card.appendChild(el);
         card.appendChild(hover);
+
+        // Lightbox open: build slides = all media for this row
+        card.addEventListener("click", () => {
+          const slides = it.media.map((url) => ({ source: it.source, url }));
+          lb.open(slides, 0);
+        });
+
         grid.appendChild(card);
       });
     }
 
     document.getElementById("refreshBtn").addEventListener("click", load);
+    platformSel.addEventListener("change", () => {
+      localStorage.setItem("widget-platform", platformSel.value);
+      load();
+    });
+
+    // Footer toggle
+    (function setupFooter(){
+      if (!SHOW_FOOTER) return;
+      const f = document.getElementById("footer");
+      f.style.display = "block";
+      if (FOOTER_TEXT) f.firstChild.textContent = FOOTER_TEXT + " ";
+      if (FOOTER_LINK) {
+        const a = f.querySelector("a");
+        a.href = FOOTER_LINK; a.textContent = FOOTER_TEXT || "Powered by You";
+      } else {
+        f.querySelector("a").style.display = "none";
+        f.textContent = FOOTER_TEXT || "Powered by You";
+      }
+    })();
+
+    // Initial load
     load();
   </script>
 </body>
