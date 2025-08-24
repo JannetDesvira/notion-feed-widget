@@ -1,123 +1,115 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Notion Feed Widget</title>
-  <style>
-    :root{
-      --card-radius:16px;
-      --gap:16px;
-      --bg:#ffffff;
-      --ink:#111827;
-      --muted:#6b7280;
-      --ring:rgba(17,24,39,.06);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
-    .wrap{max-width:980px;margin:28px auto;padding:0 16px}
-    .row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    select,button{
-      height:34px;border-radius:10px;border:1px solid var(--ring);background:#f9fafb;padding:0 10px;cursor:pointer
-    }
-    button{background:#f3f4f6}
-    button:hover{background:#edeff2}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Notion Feed Widget</title>
 
-    /* grid */
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:var(--gap);
-    }
-    @media (max-width:900px){ .grid{grid-template-columns: repeat(2, 1fr);} }
-    @media (max-width:580px){ .grid{grid-template-columns: 1fr;} }
+<style>
+  :root{
+    --card-radius:8px;
+    --gap:8px;
+    --bg:#ffffff;
+    --ink:#111827;
+    --muted:#6b7280;
+    --ring:rgba(17,24,39,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
 
-    /* card = perfect square with cover media */
-    .card{
-      position:relative;
-      aspect-ratio:1/1;
-      border-radius:var(--card-radius);
-      overflow:hidden;
-      box-shadow:0 1px 0 0 var(--ring), 0 10px 24px rgba(0,0,0,.06);
-      background:#f3f4f6;
-      transform:translateZ(0);
-    }
-    .thumb,
-    .thumb video,
-    .thumb img,
-    .thumb iframe{
-      position:absolute; inset:0;
-      width:100%; height:100%;
-      object-fit:cover; /* cover in grid */
-      display:block; border:0;
-      background:#e5e7eb;
-    }
-    /* overlay (hidden until hover) */
-    .overlay{
-      position:absolute; left:0; right:0; bottom:0;
-      padding:10px 12px;
-      background:linear-gradient(180deg, transparent, rgba(0,0,0,.55));
-      color:#fff; font-size:12px; display:flex; justify-content:space-between; align-items:flex-end;
-      opacity:0; transition:opacity .2s ease;
-    }
-    .card:hover .overlay{opacity:1}
-    .meta{display:flex; gap:8px; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-    .meta .name{max-width:160px; overflow:hidden; text-overflow:ellipsis}
-    .meta .dot{opacity:.7}
-    .badge{
-      position:absolute; top:10px; right:10px;
-      padding:4px 8px; font-size:11px; border-radius:999px; background:rgba(0,0,0,.55); color:#fff; display:none;
-    }
-    .card.is-video .badge{display:inline-block}
+  .wrap{max-width:940px;margin:28px auto;padding:0 12px}
 
-    /* lightbox */
-    .lightbox{
-      position:fixed; inset:0; background:rgba(0,0,0,.8);
-      display:none; align-items:center; justify-content:center; z-index:50;
-      padding:20px;
-    }
-    .lightbox.open{display:flex}
-    .viewer{
-      position:relative; width:min(92vw, 1100px); height:min(84vh, 820px);
-      background:#000; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35);
-    }
-    .viewer .media{
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      background:#000;
-    }
-    .viewer img, .viewer video, .viewer iframe{
-      max-width:100%; max-height:100%;
-      object-fit:contain; /* contain in lightbox so nothing gets cropped */
-      background:#000;
-    }
-    .viewer .close{
-      position:absolute; top:10px; right:10px; background:rgba(0,0,0,.6); color:#fff;
-      border:0; border-radius:10px; height:34px; padding:0 10px; cursor:pointer
-    }
-    .nav{
-      position:absolute; inset-block:0; display:flex; align-items:center; justify-content:space-between;
-      pointer-events:none;
-    }
-    .nav button{
-      pointer-events:auto; width:44px; height:44px; border-radius:999px; border:0; color:#111;
-      background:#fff; opacity:.85;
-    }
-    .caption{
-      position:absolute; left:0; right:0; bottom:0; color:#fff; padding:10px 14px; font-size:12px;
-      background:linear-gradient(180deg, transparent, rgba(0,0,0,.5));
-      display:flex; justify-content:space-between; gap:8px;
-    }
-  </style>
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .row .sp{flex:1}
+  select,button{
+    height:32px;border-radius:8px;border:1px solid var(--ring);background:#f9fafb;padding:0 10px;cursor:pointer
+  }
+  button{background:#f3f4f6}
+  button:hover{background:#edeff2}
+
+  /* GRID – IG/TikTok 3-up */
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:var(--gap);
+  }
+  @media (max-width:760px){ .grid{grid-template-columns: repeat(2, 1fr);} }
+  @media (max-width:520px){ .grid{grid-template-columns: 1fr;} }
+
+  /* CARD */
+  .card{
+    position:relative;
+    aspect-ratio:1/1;
+    border-radius:var(--card-radius);
+    overflow:hidden;
+    background:#f3f4f6;
+    box-shadow:0 1px 0 0 var(--ring);
+    cursor:pointer;
+  }
+  .thumb,
+  .thumb img,
+  .thumb video,
+  .thumb iframe{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block; border:0; background:#e5e7eb;
+  }
+  .badge{
+    position:absolute; top:8px; right:8px;
+    padding:3px 7px; font-size:11px; border-radius:999px;
+    background:rgba(0,0,0,.55); color:#fff; display:none;
+  }
+  .card.is-video .badge{display:inline-block}
+
+  /* hover label (hidden until hover) */
+  .overlay{
+    position:absolute; left:0; right:0; bottom:0;
+    padding:8px 10px;
+    background:linear-gradient(180deg, transparent, rgba(0,0,0,.55));
+    color:#fff; font-size:12px; display:flex; justify-content:space-between;
+    opacity:0; transition:opacity .18s ease;
+  }
+  .card:hover .overlay{opacity:1}
+  .meta{display:flex; gap:6px; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .meta .name{max-width:160px; overflow:hidden; text-overflow:ellipsis}
+  .meta .dot{opacity:.7}
+
+  /* LIGHTBOX */
+  .lightbox{
+    position:fixed; inset:0; background:rgba(0,0,0,.8);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .lightbox.open{display:flex}
+  .viewer{
+    position:relative; width:min(92vw, 1100px); height:min(84vh, 820px);
+    background:#000; border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .viewer .media{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000;}
+  .viewer img, .viewer video, .viewer iframe{
+    max-width:100%; max-height:100%; object-fit:contain; background:#000;
+  }
+  .viewer .close{position:absolute; top:10px; right:10px; background:rgba(0,0,0,.6); color:#fff; border:0; border-radius:8px; height:32px; padding:0 10px; cursor:pointer}
+  .nav{position:absolute; inset-block:0; inset-inline:0; display:flex; align-items:center; justify-content:space-between; pointer-events:none;}
+  .nav button{pointer-events:auto; width:42px; height:42px; border-radius:999px; border:0; color:#111; background:#fff; opacity:.9}
+  .caption{position:absolute; left:0; right:0; bottom:0; color:#fff; padding:8px 12px; font-size:12px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.5)); display:flex; justify-content:space-between; gap:8px;}
+</style>
 </head>
 <body>
   <div class="wrap">
     <div class="row">
-      <strong style="font-size:18px;margin-right:8px;">Feed View</strong>
+      <strong>Feed View</strong>
+      <span class="sp"></span>
       <label>Platform</label>
       <select id="platform">
         <option>All</option>
         <option>Instagram</option>
         <option>TikTok</option>
+        <option>Pinterest</option>
+        <option>Facebook</option>
+        <option>Threads</option>
+        <option>LinkedIn</option>
+        <option>X</option>
       </select>
       <button id="refresh">⟳ Refresh</button>
     </div>
@@ -126,190 +118,160 @@
   </div>
 
   <!-- Lightbox -->
-  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Media Viewer">
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Media viewer">
     <div class="viewer">
-      <button class="close" id="lbClose">✕ Close</button>
+      <button class="close" id="lbClose">Close ✕</button>
+      <div class="media" id="lbMedia"></div>
       <div class="nav">
         <button id="prev">‹</button>
         <button id="next">›</button>
       </div>
-      <div class="media" id="lbMedia"></div>
-      <div class="caption"><span id="lbName"></span><span id="lbDate"></span></div>
+      <div class="caption"><span id="lbName">—</span><span id="lbDate">—</span></div>
     </div>
   </div>
 
-  <script>
-    const $grid = document.getElementById('grid');
-    const $platform = document.getElementById('platform');
-    const $refresh = document.getElementById('refresh');
+<script>
+const grid = document.getElementById("grid");
+const platformSel = document.getElementById("platform");
+const refreshBtn = document.getElementById("refresh");
 
-    // lightbox state
-    let gallery = [];        // array of posts
-    let postIdx = 0;         // current post index
-    let mediaIdx = 0;        // current media index within post
+const lb = document.getElementById("lightbox");
+const lbMedia = document.getElementById("lbMedia");
+const lbName = document.getElementById("lbName");
+const lbDate = document.getElementById("lbDate");
+const lbClose = document.getElementById("lbClose");
+const btnPrev = document.getElementById("prev");
+const btnNext = document.getElementById("next");
 
-    async function fetchItems() {
-      const url = new URL('/api/notion', window.location.origin);
-      // you can pass ?platform=Instagram later if you switch your API to filter server-side
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      return data.items || [];
-    }
+let data = [];           // [{id,name,date,media:[{url,kind}], ...}]
+let current = { itemIdx:0, mediaIdx:0 };
 
-    function fmtDate(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
-    }
+function fmtDate(d){
+  if(!d) return "";
+  const date = new Date(d);
+  return date.toLocaleDateString(undefined,{ month:"short", day:"numeric", year:"numeric" });
+}
 
-    function mediaType(url){
-      if (!url) return 'image';
-      const u = url.split('?')[0].toLowerCase();
-      if (u.endsWith('.mp4') || u.endsWith('.webm') || u.endsWith('.mov')) return 'video';
-      if (u.includes('canva.com')) return 'canva';
-      return 'image';
-    }
+async function load(){
+  const p = platformSel.value || "All";
+  const url = "/api/notion?platform=" + encodeURIComponent(p);
+  const r = await fetch(url, { cache: "no-store" });
+  if(!r.ok){
+    grid.innerHTML = `<div style="color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;padding:10px;border-radius:8px">Backend error</div>`;
+    return;
+  }
+  const j = await r.json();
+  data = j.items || [];
+  render();
+}
 
-    function renderGrid(items){
-      $grid.innerHTML = '';
-      gallery = items;
-      const want = $platform.value || 'All';
+function mediaNode(kind, url){
+  if(kind === "video"){
+    const v = document.createElement("video");
+    v.src = url;
+    v.muted = true; v.playsInline = true; v.loop = true; v.autoplay = true; v.controls = false;
+    return v;
+  }
+  if(kind === "canva"){
+    // use iframe both in grid and lightbox (first page shows as preview)
+    const iframe = document.createElement("iframe");
+    iframe.src = url;
+    iframe.loading = "lazy";
+    iframe.allow = "fullscreen";
+    return iframe;
+  }
+  const img = document.createElement("img");
+  img.src = url;
+  img.alt = "";
+  return img;
+}
 
-      items
-        .filter(it => want==='All' || (it.platform||'All')===want)
-        .forEach((it, i) => {
-          // pick first media for the thumbnail
-          const first = (it.media && it.media[0]) || '';
-          const type = mediaType(first);
+function render(){
+  grid.innerHTML = "";
+  data.forEach((item, idx) => {
+    const first = item.media[0];
+    const card = document.createElement("figure");
+    card.className = "card" + (first?.kind === "video" ? " is-video" : "");
+    card.setAttribute("role","button");
+    card.setAttribute("tabindex","0");
 
-          const card = document.createElement('figure');
-          card.className = 'card' + (type==='video' ? ' is-video':'');
-          card.setAttribute('tabindex','0');
-          card.setAttribute('role','button');
-          card.setAttribute('aria-label', (it.name || 'Post') + (it.date ? (', ' + fmtDate(it.date)) : ''));
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    thumb.appendChild(mediaNode(first.kind, first.url));
+    card.appendChild(thumb);
 
-          // thumb
-          const thumb = document.createElement('div');
-          thumb.className = 'thumb';
+    // hover label (hidden until hover)
+    const overlay = document.createElement("figcaption");
+    overlay.className = "overlay";
+    overlay.innerHTML = `
+      <span class="meta"><span class="name">${escapeHtml(item.name)}</span><span class="dot">•</span><span>${fmtDate(item.date)}</span></span>
+    `;
+    card.appendChild(overlay);
 
-          if (type === 'video') {
-            const v = document.createElement('video');
-            v.src = first;
-            v.muted = true;
-            v.playsInline = true;
-            v.preload = 'metadata';
-            thumb.appendChild(v);
-            const badge = document.createElement('span');
-            badge.className = 'badge';
-            badge.textContent = 'Video';
-            card.appendChild(badge);
-          } else if (type === 'canva') {
-            // lightweight preview: Canva often blocks thumbnail hotlinking.
-            // We render a tiny iframe preview for the card (pointer events disabled).
-            const f = document.createElement('iframe');
-            f.src = first;
-            f.loading = 'lazy';
-            f.setAttribute('aria-hidden','true');
-            f.style.pointerEvents = 'none';
-            thumb.appendChild(f);
-          } else {
-            const img = document.createElement('img');
-            img.src = first;
-            img.alt = it.name || '';
-            thumb.appendChild(img);
-          }
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = "Video";
+    card.appendChild(badge);
 
-          // overlay (hidden until hover)
-          const ov = document.createElement('figcaption');
-          ov.className = 'overlay';
-          ov.innerHTML = `<div class="meta"><span class="name">${(it.name||'Untitled')}</span><span class="dot">•</span><span>${fmtDate(it.date)||''}</span></div>`;
-          card.appendChild(thumb);
-          card.appendChild(ov);
+    card.addEventListener("click", () => openLightbox(idx, 0));
+    card.addEventListener("keydown", (e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openLightbox(idx,0);} });
 
-          // open viewer
-          card.addEventListener('click', () => openLightbox(i, 0));
-          card.addEventListener('keyup', (e)=>{ if(e.key==='Enter' || e.key===' '){ openLightbox(i,0);} });
+    grid.appendChild(card);
+  });
+}
 
-          $grid.appendChild(card);
-        });
-    }
+/* ---------- lightbox ---------- */
+function openLightbox(itemIdx, mediaIdx){
+  current = { itemIdx, mediaIdx };
+  drawLightbox();
+  lb.classList.add("open");
+}
+function closeLightbox(){ lb.classList.remove("open"); lbMedia.innerHTML = ""; }
 
-    // LIGHTBOX
-    const $lb = document.getElementById('lightbox');
-    const $lbClose = document.getElementById('lbClose');
-    const $lbMedia = document.getElementById('lbMedia');
-    const $lbName = document.getElementById('lbName');
-    const $lbDate = document.getElementById('lbDate');
-    const $prev = document.getElementById('prev');
-    const $next = document.getElementById('next');
+function drawLightbox(){
+  const item = data[current.itemIdx];
+  const m = item.media[current.mediaIdx];
+  lbMedia.innerHTML = "";
+  lbMedia.appendChild(mediaNode(m.kind, m.url));
+  lbName.textContent = item.name || "";
+  lbDate.textContent = fmtDate(item.date);
+}
 
-    function openLightbox(i, m){
-      postIdx = i;
-      mediaIdx = m;
-      drawLightbox();
-      $lb.classList.add('open');
-    }
-    function closeLightbox(){ $lb.classList.remove('open'); $lbMedia.innerHTML=''; }
-    function step(dir){
-      const post = gallery[postIdx];
-      mediaIdx = (mediaIdx + dir + post.media.length) % post.media.length;
-      drawLightbox();
-    }
-    function drawLightbox(){
-      const post = gallery[postIdx];
-      const url = post.media[mediaIdx];
-      const type = mediaType(url);
+function next(){ 
+  const item = data[current.itemIdx];
+  if(current.mediaIdx < item.media.length-1){ current.mediaIdx++; }
+  else if(current.itemIdx < data.length-1){ current.itemIdx++; current.mediaIdx=0; }
+  drawLightbox();
+}
+function prev(){
+  if(current.mediaIdx > 0){ current.mediaIdx--; }
+  else if(current.itemIdx > 0){ 
+    current.itemIdx--; 
+    current.mediaIdx = data[current.itemIdx].media.length-1;
+  }
+  drawLightbox();
+}
 
-      $lbMedia.innerHTML = '';
-      let node;
-      if (type === 'video'){
-        node = document.createElement('video');
-        node.src = url;
-        node.controls = true;
-        node.playsInline = true;
-      } else if (type === 'canva') {
-        node = document.createElement('iframe');
-        node.src = url;
-        node.allowFullscreen = true;
-      } else {
-        node = document.createElement('img');
-        node.src = url;
-        node.alt = post.name || '';
-      }
-      $lbMedia.appendChild(node);
-      $lbName.textContent = post.name || '';
-      $lbDate.textContent = fmtDate(post.date) || '';
+lb.addEventListener("click",(e)=>{ if(e.target===lb) closeLightbox(); });
+lbClose.addEventListener("click", closeLightbox);
+btnNext.addEventListener("click", next);
+btnPrev.addEventListener("click", prev);
+document.addEventListener("keydown",(e)=>{
+  if(!lb.classList.contains("open")) return;
+  if(e.key==="Escape") closeLightbox();
+  if(e.key==="ArrowRight") next();
+  if(e.key==="ArrowLeft") prev();
+});
 
-      // enable/disable arrows if only one media
-      const onlyOne = (post.media||[]).length <= 1;
-      $prev.style.visibility = onlyOne ? 'hidden':'visible';
-      $next.style.visibility = onlyOne ? 'hidden':'visible';
-    }
+/* ---------- utils ---------- */
+function escapeHtml(s=""){
+  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
 
-    $lbClose.addEventListener('click', closeLightbox);
-    $lb.addEventListener('click', (e)=>{ if(e.target===$lb) closeLightbox(); });
-    $prev.addEventListener('click', ()=>step(-1));
-    $next.addEventListener('click', ()=>step(1));
-    window.addEventListener('keydown', (e)=>{
-      if (!$lb.classList.contains('open')) return;
-      if (e.key==='Escape') closeLightbox();
-      if (e.key==='ArrowRight') step(1);
-      if (e.key==='ArrowLeft') step(-1);
-    });
-
-    // bootstrap
-    async function load(){
-      try{
-        const items = await fetchItems();
-        renderGrid(items);
-      }catch(e){
-        $grid.innerHTML = `<div style="padding:16px;border:1px solid #fee;background:#fff5f5;border-radius:12px;color:#b91c1c">Backend error: ${e.message}</div>`;
-      }
-    }
-    $refresh.addEventListener('click', load);
-    $platform.addEventListener('change', load);
-    load();
-  </script>
+/* ---------- init ---------- */
+refreshBtn.addEventListener("click", load);
+platformSel.addEventListener("change", load);
+load();
+</script>
 </body>
 </html>
