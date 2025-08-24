@@ -1,242 +1,315 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Notion Feed Widget</title>
-<style>
-  :root {
-    --gap: 10px;
-    --radius: 12px;
-    --tile-bg: #f5f5f7;
-    --text: #111;
-    --sub: #666;
-    --chip-bg: #efefef;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 18px;
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
-    color: var(--text);
-    background: #fff;
-  }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Notion Feed Widget</title>
+  <style>
+    :root{
+      --card-radius:16px;
+      --gap:16px;
+      --bg:#ffffff;
+      --ink:#111827;
+      --muted:#6b7280;
+      --ring:rgba(17,24,39,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+    .wrap{max-width:980px;margin:28px auto;padding:0 16px}
+    .row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    select,button{
+      height:34px;border-radius:10px;border:1px solid var(--ring);background:#f9fafb;padding:0 10px;cursor:pointer
+    }
+    button{background:#f3f4f6}
+    button:hover{background:#edeff2}
 
-  /* header */
-  .bar { display:flex; gap:12px; align-items:center; margin-bottom:14px; }
-  select, button {
-    height: 34px; border-radius: 8px; border:1px solid #ddd; background:#fff;
-    padding: 0 10px; font-size:14px;
-  }
-  button { cursor:pointer; }
-  .chip { padding:4px 8px; border-radius:999px; background:var(--chip-bg); font-size:12px; color:#333; }
+    /* grid */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:var(--gap);
+    }
+    @media (max-width:900px){ .grid{grid-template-columns: repeat(2, 1fr);} }
+    @media (max-width:580px){ .grid{grid-template-columns: 1fr;} }
 
-  /* grid */
-  .grid {
-    display:grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--gap);
-  }
-  .card {
-    position:relative;
-    width:100%;
-    aspect-ratio:1/1;
-    background:var(--tile-bg);
-    border-radius: var(--radius);
-    overflow:hidden;
-  }
-  .card img, .card video, .card iframe {
-    width:100%; height:100%;
-    object-fit:cover; display:block;
-    background:#eee;
-  }
-  .card iframe { border:0; }
+    /* card = perfect square with cover media */
+    .card{
+      position:relative;
+      aspect-ratio:1/1;
+      border-radius:var(--card-radius);
+      overflow:hidden;
+      box-shadow:0 1px 0 0 var(--ring), 0 10px 24px rgba(0,0,0,.06);
+      background:#f3f4f6;
+      transform:translateZ(0);
+    }
+    .thumb,
+    .thumb video,
+    .thumb img,
+    .thumb iframe{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit:cover; /* cover in grid */
+      display:block; border:0;
+      background:#e5e7eb;
+    }
+    /* overlay (hidden until hover) */
+    .overlay{
+      position:absolute; left:0; right:0; bottom:0;
+      padding:10px 12px;
+      background:linear-gradient(180deg, transparent, rgba(0,0,0,.55));
+      color:#fff; font-size:12px; display:flex; justify-content:space-between; align-items:flex-end;
+      opacity:0; transition:opacity .2s ease;
+    }
+    .card:hover .overlay{opacity:1}
+    .meta{display:flex; gap:8px; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .meta .name{max-width:160px; overflow:hidden; text-overflow:ellipsis}
+    .meta .dot{opacity:.7}
+    .badge{
+      position:absolute; top:10px; right:10px;
+      padding:4px 8px; font-size:11px; border-radius:999px; background:rgba(0,0,0,.55); color:#fff; display:none;
+    }
+    .card.is-video .badge{display:inline-block}
 
-  /* caption hover */
-  .cap {
-    position:absolute; left:0; right:0; bottom:0;
-    padding:8px 10px;
-    background: linear-gradient(to top, rgba(0,0,0,.5), rgba(0,0,0,0));
-    color:#fff; font-size:12px;
-    display:flex; justify-content:space-between; align-items:flex-end;
-  }
-  .title { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:75%; }
-  .date { opacity:.9; }
-
-  /* lightbox */
-  .modal {
-    position:fixed; inset:0; background:rgba(0,0,0,.6);
-    display:none; align-items:center; justify-content:center; padding:20px;
-    z-index:9999;
-  }
-  .modal.open { display:flex; }
-  .viewer {
-    width:min(900px, 92vw); height:min(90vh, 700px);
-    background:#000; border-radius:16px; overflow:hidden; position:relative;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .viewer img, .viewer video, .viewer iframe {
-    max-width:100%; max-height:100%;
-    width:auto; height:auto; object-fit:contain; background:#000;
-  }
-  .nav {
-    position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; pointer-events:none;
-  }
-  .nav button {
-    pointer-events:auto; width:44px; height:44px; border-radius:999px; border:0; background:rgba(255,255,255,.15); color:#fff; font-size:20px;
-  }
-  .close {
-    position:absolute; top:8px; right:8px; border:0; width:36px; height:36px; border-radius:999px; background:rgba(255,255,255,.15); color:#fff;
-  }
-  .mcap {
-    position:absolute; left:0; right:0; bottom:0; color:#fff; padding:10px 12px; background:linear-gradient(to top, rgba(0,0,0,.55), transparent);
-    font-size:13px; display:flex; gap:6px; justify-content:space-between;
-  }
-</style>
+    /* lightbox */
+    .lightbox{
+      position:fixed; inset:0; background:rgba(0,0,0,.8);
+      display:none; align-items:center; justify-content:center; z-index:50;
+      padding:20px;
+    }
+    .lightbox.open{display:flex}
+    .viewer{
+      position:relative; width:min(92vw, 1100px); height:min(84vh, 820px);
+      background:#000; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+    .viewer .media{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:#000;
+    }
+    .viewer img, .viewer video, .viewer iframe{
+      max-width:100%; max-height:100%;
+      object-fit:contain; /* contain in lightbox so nothing gets cropped */
+      background:#000;
+    }
+    .viewer .close{
+      position:absolute; top:10px; right:10px; background:rgba(0,0,0,.6); color:#fff;
+      border:0; border-radius:10px; height:34px; padding:0 10px; cursor:pointer
+    }
+    .nav{
+      position:absolute; inset-block:0; display:flex; align-items:center; justify-content:space-between;
+      pointer-events:none;
+    }
+    .nav button{
+      pointer-events:auto; width:44px; height:44px; border-radius:999px; border:0; color:#111;
+      background:#fff; opacity:.85;
+    }
+    .caption{
+      position:absolute; left:0; right:0; bottom:0; color:#fff; padding:10px 14px; font-size:12px;
+      background:linear-gradient(180deg, transparent, rgba(0,0,0,.5));
+      display:flex; justify-content:space-between; gap:8px;
+    }
+  </style>
 </head>
 <body>
-  <div class="bar">
-    <span class="chip">Feed View</span>
-    <label style="font-size:14px;color:#444;">Platform</label>
-    <select id="platform">
-      <option>All</option><option>Instagram</option><option>TikTok</option>
-    </select>
-    <button id="refresh">⟳ Refresh</button>
+  <div class="wrap">
+    <div class="row">
+      <strong style="font-size:18px;margin-right:8px;">Feed View</strong>
+      <label>Platform</label>
+      <select id="platform">
+        <option>All</option>
+        <option>Instagram</option>
+        <option>TikTok</option>
+      </select>
+      <button id="refresh">⟳ Refresh</button>
+    </div>
+
+    <div id="grid" class="grid" aria-live="polite"></div>
   </div>
 
-  <div id="grid" class="grid"></div>
-
-  <!-- lightbox -->
-  <div id="modal" class="modal" aria-hidden="true">
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Media Viewer">
     <div class="viewer">
-      <button class="close" id="close">✕</button>
-      <div id="stage"></div>
+      <button class="close" id="lbClose">✕ Close</button>
       <div class="nav">
         <button id="prev">‹</button>
         <button id="next">›</button>
       </div>
-      <div class="mcap"><div id="mname"></div><div id="mdate"></div></div>
+      <div class="media" id="lbMedia"></div>
+      <div class="caption"><span id="lbName"></span><span id="lbDate"></span></div>
     </div>
   </div>
 
-<script>
-const API = "/api/notion";
-const grid = document.getElementById("grid");
-const sel = document.getElementById("platform");
-const btn = document.getElementById("refresh");
+  <script>
+    const $grid = document.getElementById('grid');
+    const $platform = document.getElementById('platform');
+    const $refresh = document.getElementById('refresh');
 
-/** state for lightbox */
-let current = { items: [], idx: 0, meta: {name:"", date:""} };
+    // lightbox state
+    let gallery = [];        // array of posts
+    let postIdx = 0;         // current post index
+    let mediaIdx = 0;        // current media index within post
 
-btn.addEventListener("click", load);
-sel.addEventListener("change", load);
-
-async function load() {
-  grid.innerHTML = "";
-  const url = new URL(API, location.origin);
-  url.searchParams.set("platform", sel.value || "All");
-  const r = await fetch(url);
-  if (!r.ok) { grid.innerHTML = `<div style="opacity:.6">Failed to load.</div>`; return; }
-  const { items } = await r.json();
-  if (!items || !items.length) { grid.innerHTML = `<div style="opacity:.6">No items yet.</div>`; return; }
-
-  for (const it of items) {
-    const card = document.createElement("div");
-    card.className = "card";
-
-    // choose renderer by kind
-    const src = it.media[0];
-
-    if (isVideo(src)) {
-      const v = document.createElement("video");
-      v.src = withStart(src);
-      v.preload = "metadata"; v.muted = true; v.playsInline = true;
-      card.appendChild(v);
-    } else if (isCanva(src)) {
-      const ifr = document.createElement("iframe");
-      ifr.src = src; // already normalized with ?embed=1
-      card.appendChild(ifr);
-    } else {
-      const img = document.createElement("img");
-      img.src = src;
-      img.loading = "lazy";
-      card.appendChild(img);
+    async function fetchItems() {
+      const url = new URL('/api/notion', window.location.origin);
+      // you can pass ?platform=Instagram later if you switch your API to filter server-side
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      return data.items || [];
     }
 
-    // caption
-    const cap = document.createElement("div");
-    cap.className = "cap";
-    const t = document.createElement("div");
-    t.className = "title";
-    t.textContent = it.name;
-    const d = document.createElement("div");
-    d.className = "date";
-    d.textContent = formatDate(it.date);
-    cap.append(t, d);
-    card.appendChild(cap);
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+    }
 
-    // click -> lightbox gallery
-    card.addEventListener("click", () => openLightbox(it));
-    grid.appendChild(card);
-  }
-}
+    function mediaType(url){
+      if (!url) return 'image';
+      const u = url.split('?')[0].toLowerCase();
+      if (u.endsWith('.mp4') || u.endsWith('.webm') || u.endsWith('.mov')) return 'video';
+      if (u.includes('canva.com')) return 'canva';
+      return 'image';
+    }
 
-function isCanva(u){ try{ return new URL(u).hostname.includes("canva.com"); }catch{return false;} }
-function isVideo(u){ return /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(u); }
-function withStart(u){ return u.includes("#t=") ? u : (u + "#t=0.05"); }
-function formatDate(iso){ if(!iso) return ""; const d=new Date(iso); return d.toLocaleDateString(undefined,{month:"short", day:"numeric", year:"numeric"}); }
+    function renderGrid(items){
+      $grid.innerHTML = '';
+      gallery = items;
+      const want = $platform.value || 'All';
 
-/* Lightbox */
-const modal = document.getElementById("modal");
-const stage = document.getElementById("stage");
-const mname = document.getElementById("mname");
-const mdate = document.getElementById("mdate");
-document.getElementById("close").onclick = () => closeLightbox();
-document.getElementById("prev").onclick = () => step(-1);
-document.getElementById("next").onclick = () => step(1);
-modal.addEventListener("click",(e)=>{ if(e.target===modal) closeLightbox(); });
+      items
+        .filter(it => want==='All' || (it.platform||'All')===want)
+        .forEach((it, i) => {
+          // pick first media for the thumbnail
+          const first = (it.media && it.media[0]) || '';
+          const type = mediaType(first);
 
-function openLightbox(item){
-  current.items = item.media.slice(); // copy
-  current.idx = 0;
-  current.meta = { name:item.name, date: formatDate(item.date) };
-  renderStage();
-  modal.classList.add("open");
-  modal.setAttribute("aria-hidden","false");
-}
+          const card = document.createElement('figure');
+          card.className = 'card' + (type==='video' ? ' is-video':'');
+          card.setAttribute('tabindex','0');
+          card.setAttribute('role','button');
+          card.setAttribute('aria-label', (it.name || 'Post') + (it.date ? (', ' + fmtDate(it.date)) : ''));
 
-function closeLightbox(){
-  stage.innerHTML = "";
-  modal.classList.remove("open");
-  modal.setAttribute("aria-hidden","true");
-}
+          // thumb
+          const thumb = document.createElement('div');
+          thumb.className = 'thumb';
 
-function step(dir){
-  if(!current.items.length) return;
-  current.idx = (current.idx + dir + current.items.length) % current.items.length;
-  renderStage();
-}
+          if (type === 'video') {
+            const v = document.createElement('video');
+            v.src = first;
+            v.muted = true;
+            v.playsInline = true;
+            v.preload = 'metadata';
+            thumb.appendChild(v);
+            const badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.textContent = 'Video';
+            card.appendChild(badge);
+          } else if (type === 'canva') {
+            // lightweight preview: Canva often blocks thumbnail hotlinking.
+            // We render a tiny iframe preview for the card (pointer events disabled).
+            const f = document.createElement('iframe');
+            f.src = first;
+            f.loading = 'lazy';
+            f.setAttribute('aria-hidden','true');
+            f.style.pointerEvents = 'none';
+            thumb.appendChild(f);
+          } else {
+            const img = document.createElement('img');
+            img.src = first;
+            img.alt = it.name || '';
+            thumb.appendChild(img);
+          }
 
-function renderStage(){
-  const src = current.items[current.idx];
-  stage.innerHTML = "";
-  let el;
-  if (isVideo(src)) {
-    el = document.createElement("video");
-    el.src = withStart(src);
-    el.controls = true; el.autoplay = true; el.muted = true; el.playsInline = true;
-  } else if (isCanva(src)) {
-    el = document.createElement("iframe");
-    el.src = src; // embedded canva
-  } else {
-    el = document.createElement("img");
-    el.src = src;
-  }
-  stage.appendChild(el);
-  mname.textContent = current.meta.name;
-  mdate.textContent = current.meta.date;
-}
+          // overlay (hidden until hover)
+          const ov = document.createElement('figcaption');
+          ov.className = 'overlay';
+          ov.innerHTML = `<div class="meta"><span class="name">${(it.name||'Untitled')}</span><span class="dot">•</span><span>${fmtDate(it.date)||''}</span></div>`;
+          card.appendChild(thumb);
+          card.appendChild(ov);
 
-load(); // first paint
-</script>
+          // open viewer
+          card.addEventListener('click', () => openLightbox(i, 0));
+          card.addEventListener('keyup', (e)=>{ if(e.key==='Enter' || e.key===' '){ openLightbox(i,0);} });
+
+          $grid.appendChild(card);
+        });
+    }
+
+    // LIGHTBOX
+    const $lb = document.getElementById('lightbox');
+    const $lbClose = document.getElementById('lbClose');
+    const $lbMedia = document.getElementById('lbMedia');
+    const $lbName = document.getElementById('lbName');
+    const $lbDate = document.getElementById('lbDate');
+    const $prev = document.getElementById('prev');
+    const $next = document.getElementById('next');
+
+    function openLightbox(i, m){
+      postIdx = i;
+      mediaIdx = m;
+      drawLightbox();
+      $lb.classList.add('open');
+    }
+    function closeLightbox(){ $lb.classList.remove('open'); $lbMedia.innerHTML=''; }
+    function step(dir){
+      const post = gallery[postIdx];
+      mediaIdx = (mediaIdx + dir + post.media.length) % post.media.length;
+      drawLightbox();
+    }
+    function drawLightbox(){
+      const post = gallery[postIdx];
+      const url = post.media[mediaIdx];
+      const type = mediaType(url);
+
+      $lbMedia.innerHTML = '';
+      let node;
+      if (type === 'video'){
+        node = document.createElement('video');
+        node.src = url;
+        node.controls = true;
+        node.playsInline = true;
+      } else if (type === 'canva') {
+        node = document.createElement('iframe');
+        node.src = url;
+        node.allowFullscreen = true;
+      } else {
+        node = document.createElement('img');
+        node.src = url;
+        node.alt = post.name || '';
+      }
+      $lbMedia.appendChild(node);
+      $lbName.textContent = post.name || '';
+      $lbDate.textContent = fmtDate(post.date) || '';
+
+      // enable/disable arrows if only one media
+      const onlyOne = (post.media||[]).length <= 1;
+      $prev.style.visibility = onlyOne ? 'hidden':'visible';
+      $next.style.visibility = onlyOne ? 'hidden':'visible';
+    }
+
+    $lbClose.addEventListener('click', closeLightbox);
+    $lb.addEventListener('click', (e)=>{ if(e.target===$lb) closeLightbox(); });
+    $prev.addEventListener('click', ()=>step(-1));
+    $next.addEventListener('click', ()=>step(1));
+    window.addEventListener('keydown', (e)=>{
+      if (!$lb.classList.contains('open')) return;
+      if (e.key==='Escape') closeLightbox();
+      if (e.key==='ArrowRight') step(1);
+      if (e.key==='ArrowLeft') step(-1);
+    });
+
+    // bootstrap
+    async function load(){
+      try{
+        const items = await fetchItems();
+        renderGrid(items);
+      }catch(e){
+        $grid.innerHTML = `<div style="padding:16px;border:1px solid #fee;background:#fff5f5;border-radius:12px;color:#b91c1c">Backend error: ${e.message}</div>`;
+      }
+    }
+    $refresh.addEventListener('click', load);
+    $platform.addEventListener('change', load);
+    load();
+  </script>
 </body>
 </html>
