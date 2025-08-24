@@ -1,181 +1,126 @@
-<!-- index.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Notion Feed Widget</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 20px; color: #111; }
-    .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .card { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #f2f2f2; border-radius: 8px; overflow: hidden; cursor: pointer; }
-    .card img, .card video, .card iframe { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pill { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.65); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 999px; }
-    .error { padding: 12px; border: 1px solid #ffd1d1; background: #fff1f1; color: #a40000; border-radius: 8px; margin-top: 12px; }
-    button { padding: 6px 10px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor:pointer; }
-    select { border-radius: 8px; border: 1px solid #ddd; padding: 6px 8px; }
-    /* Lightbox */
-    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display:none; align-items: center; justify-content: center; z-index: 9999; }
-    .lightbox.visible { display:flex; }
-    .lb-inner { position: relative; width: min(92vw, 900px); height: min(92vh, 900px); background: #000; border-radius: 12px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-    .lb-media { width: 100%; height: 100%; object-fit: contain; background:#000; }
-    .lb-close, .lb-prev, .lb-next { position: absolute; top: 10px; background: rgba(255,255,255,0.9); border:none; border-radius: 8px; padding: 6px 10px; cursor:pointer; }
-    .lb-close { right: 10px; }
-    .lb-prev, .lb-next { top: 50%; transform: translateY(-50%); }
-    .lb-prev { left: 10px; }
-    .lb-next { right: 10px; }
+    :root { --gap: 10px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
+    .controls { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    select, button { padding:6px 10px; border:1px solid #ddd; border-radius:6px; background:#fff; }
+    button { cursor:pointer; }
+    .error { background:#ffe2e2; color:#b00020; padding:10px; border-radius:8px; margin:12px 0; }
+    .grid {
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--gap);
+    }
+    .card {
+      position:relative;
+      border-radius:12px;
+      overflow:hidden;
+      background:#f8f8f8;
+      border:1px solid #eee;
+      aspect-ratio: 1 / 1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .card img, .card iframe {
+      width:100%; height:100%; object-fit:cover; border:0;
+    }
+    .pin {
+      position:absolute; top:6px; left:6px;
+      background:#111; color:#fff; font-size:12px; padding:2px 6px; border-radius:999px;
+      opacity:.85;
+    }
+    .meta {
+      font-size:12px; color:#555; margin-top:4px; text-align:center;
+    }
   </style>
 </head>
 <body>
-  <div class="toolbar">
+  <div class="controls">
     <label>Platform</label>
     <select id="platform">
-      <option>All</option>
-      <option>Instagram</option>
-      <option>TikTok</option>
+      <option value="All">All</option>
+      <option value="Instagram">Instagram</option>
+      <option value="TikTok">TikTok</option>
+      <option value="Pinterest">Pinterest</option>
+      <!-- add/remove to match your Notion Select options exactly -->
     </select>
-    <button id="refresh">🔄 Refresh</button>
+    <button id="refresh">⟳ Refresh</button>
   </div>
 
-  <div id="status"></div>
+  <div id="err" class="error" style="display:none;"></div>
   <div id="grid" class="grid"></div>
 
-  <!-- Lightbox -->
-  <div id="lightbox" class="lightbox" aria-hidden="true">
-    <div class="lb-inner">
-      <button class="lb-close" id="lbClose">Close ✕</button>
-      <button class="lb-prev" id="lbPrev">◀</button>
-      <button class="lb-next" id="lbNext">▶</button>
-      <img id="lbImg" class="lb-media" alt=""/>
-      <video id="lbVideo" class="lb-media" controls style="display:none;"></video>
-      <iframe id="lbFrame" class="lb-media" style="display:none;" frameborder="0" allowfullscreen></iframe>
-    </div>
-  </div>
-
   <script>
-    const API = '/api/notion'; // same origin on Vercel
     const grid = document.getElementById('grid');
-    const statusBox = document.getElementById('status');
-    const platformSel = document.getElementById('platform');
+    const errBox = document.getElementById('err');
+    const platformSelect = document.getElementById('platform');
+    const refreshBtn = document.getElementById('refresh');
 
-    // Lightbox state
-    const lb = document.getElementById('lightbox');
-    const lbImg = document.getElementById('lbImg');
-    const lbVideo = document.getElementById('lbVideo');
-    const lbFrame = document.getElementById('lbFrame');
-    const lbPrev = document.getElementById('lbPrev');
-    const lbNext = document.getElementById('lbNext');
-    const lbClose = document.getElementById('lbClose');
-    let lbMedia = [];
-    let lbIndex = 0;
+    let allItems = [];
 
-    function showError(message, extra) {
-      statusBox.innerHTML = '';
-      const div = document.createElement('div');
-      div.className = 'error';
-      div.innerHTML = `<strong>Backend error:</strong> ${message}${extra ? `<pre>${extra}</pre>` : ''}`;
-      statusBox.appendChild(div);
-    }
-
-    function render(items) {
-      statusBox.innerHTML = '';
+    async function fetchItems() {
+      errBox.style.display = 'none';
       grid.innerHTML = '';
-      if (!items.length) {
-        statusBox.innerHTML = '<div>No content yet. Add rows to your Notion database.</div>';
-        return;
-      }
-      items.forEach((item, idx) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        if (item.pinned) {
-          const pill = document.createElement('div');
-          pill.className = 'pill';
-          pill.textContent = 'Pinned';
-          card.appendChild(pill);
-        }
-
-        const url = item.cover;
-        let el;
-        if (!url) {
-          el = document.createElement('div');
-          el.style.background = '#eee';
-        } else if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
-          el = document.createElement('video');
-          el.src = url;
-          el.autoplay = false;
-          el.muted = true;
-          el.playsInline = true;
-          el.controls = false;
-        } else if (/canva\.com/.test(url)) {
-          el = document.createElement('iframe');
-          el.src = url;
-        } else {
-          el = document.createElement('img');
-          el.src = url;
-          el.alt = item.name || '';
-          el.loading = 'lazy';
-        }
-        card.appendChild(el);
-
-        card.addEventListener('click', () => openLightbox(item.media));
-        grid.appendChild(card);
-      });
-    }
-
-    function openLightbox(media) {
-      lbMedia = media || [];
-      lbIndex = 0;
-      updateLightbox();
-      lb.classList.add('visible');
-      lb.setAttribute('aria-hidden', 'false');
-    }
-
-    function updateLightbox() {
-      const url = lbMedia[lbIndex];
-      if (!url) return;
-      lbImg.style.display = 'none';
-      lbVideo.style.display = 'none';
-      lbFrame.style.display = 'none';
-      if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
-        lbVideo.src = url;
-        lbVideo.style.display = 'block';
-      } else if (/canva\.com/.test(url)) {
-        lbFrame.src = url;
-        lbFrame.style.display = 'block';
-      } else {
-        lbImg.src = url;
-        lbImg.style.display = 'block';
-      }
-    }
-
-    lbPrev.onclick = () => { if (!lbMedia.length) return; lbIndex = (lbIndex - 1 + lbMedia.length) % lbMedia.length; updateLightbox(); };
-    lbNext.onclick = () => { if (!lbMedia.length) return; lbIndex = (lbIndex + 1) % lbMedia.length; updateLightbox(); };
-    lbClose.onclick = () => { lb.classList.remove('visible'); lb.setAttribute('aria-hidden','true'); };
-
-    async function load() {
       try {
-        const p = platformSel.value;
-        const q = p && p !== 'All' ? `?platform=${encodeURIComponent(p)}` : '';
-        // use debug=1 once to see detailed errors if needed
-        const r = await fetch(`${API}${q}`);
-        const text = await r.text();
-        let data;
-        try { data = JSON.parse(text); } catch { throw new Error(`Non-JSON response:\n${text.slice(0,500)}`); }
-        if (!data.ok) {
-          showError(data.error || 'Unknown error', data.hint || '');
-          return;
+        const res = await fetch('/api/notion', { cache: 'no-store' });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Backend error: ${text}`);
         }
-        render(data.items || []);
+        const data = await res.json();
+        allItems = Array.isArray(data.items) ? data.items : [];
+        render();
       } catch (e) {
-        showError(e.message);
+        errBox.textContent = e.message || 'Unknown error';
+        errBox.style.display = 'block';
       }
     }
 
-    document.getElementById('refresh').onclick = load;
-    platformSel.onchange = load;
+    function render() {
+      const selected = platformSelect.value || 'All';
+      const items = allItems.filter(it => selected === 'All' || it.platform === selected);
 
-    load();
+      grid.innerHTML = items.map(it => {
+        // first media only for the grid card; (lightbox can be added later)
+        const first = (it.media && it.media[0]) || '';
+        const isVideo = first.endsWith('.mp4') || first.includes('video');
+        const isCanva = /canva\.com/.test(first);
+
+        let mediaEl = '';
+        if (isCanva) {
+          mediaEl = `<iframe src="${first}" loading="lazy"></iframe>`;
+        } else if (isVideo) {
+          mediaEl = `<video src="${first}" autoplay muted loop playsinline></video>`;
+        } else {
+          mediaEl = `<img src="${first}" alt="" loading="lazy" />`;
+        }
+
+        const dateStr = it.date ? new Date(it.date).toLocaleDateString() : '';
+        const pin = it.pinned ? `<span class="pin">Pinned</span>` : '';
+
+        return `
+          <div>
+            <div class="card">
+              ${mediaEl}
+              ${pin}
+            </div>
+            <div class="meta">${it.name || ''}${dateStr ? ' • ' + dateStr : ''}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    platformSelect.addEventListener('change', render);
+    refreshBtn.addEventListener('click', fetchItems);
+
+    // initial load
+    fetchItems();
   </script>
 </body>
 </html>
