@@ -1,212 +1,242 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Notion Feed Widget</title>
-  <style>
-    :root{ --gap:8px; --tileR:10px; }
-    *{ box-sizing:border-box }
-    body{ margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#fff; color:#111; }
-    .toolbar{ display:flex; align-items:center; gap:10px; padding:12px; border-bottom:1px solid #eee; position:sticky; top:0; background:#fff; z-index:2; }
-    select,button{ height:32px; border:1px solid #e3e3e3; background:#fafafa; border-radius:8px; padding:0 10px; font-size:14px; cursor:pointer; }
-    .grid{ padding:12px; display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap); }
-    .card{ position:relative; width:100%; padding-top:100%; border-radius:var(--tileR); overflow:hidden; background:#f2f2f2; cursor:pointer; }
-    .media, .media iframe{ position:absolute; inset:0; width:100%; height:100%; }
-    .media{ object-fit:cover; }
-    .caption{ position:absolute; left:0; right:0; bottom:0; padding:8px 10px; color:#fff; font-size:12px; background:linear-gradient(180deg,rgba(0,0,0,0) 0, rgba(0,0,0,.55) 90%); opacity:0; transition:.18s ease; }
-    .card:hover .caption{ opacity:1; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Notion Feed Widget</title>
+<style>
+  :root {
+    --gap: 10px;
+    --radius: 12px;
+    --tile-bg: #f5f5f7;
+    --text: #111;
+    --sub: #666;
+    --chip-bg: #efefef;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 18px;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+    color: var(--text);
+    background: #fff;
+  }
 
-    /* lightbox */
-    .lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:9999; }
-    .lightbox.open{ display:flex; }
-    .lb-inner{ width:min(920px,92vw); max-height:92vh; display:flex; flex-direction:column; gap:10px; }
-    .lb-head{ display:flex; align-items:center; justify-content:space-between; color:#fff; font-size:14px; }
-    .viewer{ position:relative; background:#000; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:60vh; }
-    .viewer .media, .viewer iframe{ max-width:100%; max-height:80vh; width:auto; height:auto; }
-    .lb-controls{ position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; pointer-events:none; }
-    .arrow{ pointer-events:auto; background:rgba(0,0,0,.5); border:none; color:#fff; width:40px; height:40px; border-radius:999px; cursor:pointer; font-size:18px; display:grid; place-items:center; margin:0 8px; }
-    .close{ background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
-  </style>
+  /* header */
+  .bar { display:flex; gap:12px; align-items:center; margin-bottom:14px; }
+  select, button {
+    height: 34px; border-radius: 8px; border:1px solid #ddd; background:#fff;
+    padding: 0 10px; font-size:14px;
+  }
+  button { cursor:pointer; }
+  .chip { padding:4px 8px; border-radius:999px; background:var(--chip-bg); font-size:12px; color:#333; }
+
+  /* grid */
+  .grid {
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap);
+  }
+  .card {
+    position:relative;
+    width:100%;
+    aspect-ratio:1/1;
+    background:var(--tile-bg);
+    border-radius: var(--radius);
+    overflow:hidden;
+  }
+  .card img, .card video, .card iframe {
+    width:100%; height:100%;
+    object-fit:cover; display:block;
+    background:#eee;
+  }
+  .card iframe { border:0; }
+
+  /* caption hover */
+  .cap {
+    position:absolute; left:0; right:0; bottom:0;
+    padding:8px 10px;
+    background: linear-gradient(to top, rgba(0,0,0,.5), rgba(0,0,0,0));
+    color:#fff; font-size:12px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+  }
+  .title { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:75%; }
+  .date { opacity:.9; }
+
+  /* lightbox */
+  .modal {
+    position:fixed; inset:0; background:rgba(0,0,0,.6);
+    display:none; align-items:center; justify-content:center; padding:20px;
+    z-index:9999;
+  }
+  .modal.open { display:flex; }
+  .viewer {
+    width:min(900px, 92vw); height:min(90vh, 700px);
+    background:#000; border-radius:16px; overflow:hidden; position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .viewer img, .viewer video, .viewer iframe {
+    max-width:100%; max-height:100%;
+    width:auto; height:auto; object-fit:contain; background:#000;
+  }
+  .nav {
+    position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; pointer-events:none;
+  }
+  .nav button {
+    pointer-events:auto; width:44px; height:44px; border-radius:999px; border:0; background:rgba(255,255,255,.15); color:#fff; font-size:20px;
+  }
+  .close {
+    position:absolute; top:8px; right:8px; border:0; width:36px; height:36px; border-radius:999px; background:rgba(255,255,255,.15); color:#fff;
+  }
+  .mcap {
+    position:absolute; left:0; right:0; bottom:0; color:#fff; padding:10px 12px; background:linear-gradient(to top, rgba(0,0,0,.55), transparent);
+    font-size:13px; display:flex; gap:6px; justify-content:space-between;
+  }
+</style>
 </head>
 <body>
-  <div class="toolbar">
-    <label style="font-size:14px">Platform</label>
+  <div class="bar">
+    <span class="chip">Feed View</span>
+    <label style="font-size:14px;color:#444;">Platform</label>
     <select id="platform">
-      <option>All</option>
-      <option>Instagram</option>
-      <option>TikTok</option>
-      <option>Pinterest</option>
+      <option>All</option><option>Instagram</option><option>TikTok</option>
     </select>
     <button id="refresh">⟳ Refresh</button>
   </div>
 
-  <div id="grid" class="grid" aria-live="polite"></div>
+  <div id="grid" class="grid"></div>
 
   <!-- lightbox -->
-  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Media viewer">
-    <div class="lb-inner">
-      <div class="lb-head">
-        <div id="lb-title"></div>
-        <button class="close" id="lb-close" aria-label="Close">✕</button>
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="viewer">
+      <button class="close" id="close">✕</button>
+      <div id="stage"></div>
+      <div class="nav">
+        <button id="prev">‹</button>
+        <button id="next">›</button>
       </div>
-      <div class="viewer" id="viewer">
-        <div class="lb-controls">
-          <button class="arrow" id="prev" aria-label="Previous">‹</button>
-          <button class="arrow" id="next" aria-label="Next">›</button>
-        </div>
-      </div>
+      <div class="mcap"><div id="mname"></div><div id="mdate"></div></div>
     </div>
   </div>
 
-  <script>
-    const grid = document.getElementById("grid");
-    const platformSel = document.getElementById("platform");
-    const refreshBtn = document.getElementById("refresh");
+<script>
+const API = "/api/notion";
+const grid = document.getElementById("grid");
+const sel = document.getElementById("platform");
+const btn = document.getElementById("refresh");
 
-    // lightbox state
-    const lb = document.getElementById("lightbox");
-    const lbTitle = document.getElementById("lb-title");
-    const lbClose = document.getElementById("lb-close");
-    const viewer = document.getElementById("viewer");
-    const prevBtn = document.getElementById("prev");
-    const nextBtn = document.getElementById("next");
-    let lbItems = []; let lbIndex = 0;
+/** state for lightbox */
+let current = { items: [], idx: 0, meta: {name:"", date:""} };
 
-    const fmtDate = (iso) => {
-      if (!iso) return "";
-      try { return new Date(iso).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
-      catch { return ""; }
-    };
+btn.addEventListener("click", load);
+sel.addEventListener("change", load);
 
-    // --- smarter media detection ---
-    const looksLikeCanva = (u) => /canva\.com/i.test(u);
-    const looksLikeVideoByExt = (u) => /\.(mp4|webm|mov)(\?|$)/i.test(u);
-    const looksLikeNotionFile = (u) => /notion-static|amazonaws|s3/i.test(u); // Notion signed files often have no extension
+async function load() {
+  grid.innerHTML = "";
+  const url = new URL(API, location.origin);
+  url.searchParams.set("platform", sel.value || "All");
+  const r = await fetch(url);
+  if (!r.ok) { grid.innerHTML = `<div style="opacity:.6">Failed to load.</div>`; return; }
+  const { items } = await r.json();
+  if (!items || !items.length) { grid.innerHTML = `<div style="opacity:.6">No items yet.</div>`; return; }
 
-    function makeVideo(url, asThumb=false){
+  for (const it of items) {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    // choose renderer by kind
+    const src = it.media[0];
+
+    if (isVideo(src)) {
       const v = document.createElement("video");
-      v.className = "media";
-      v.src = url;
-      v.playsInline = true;
-      v.muted = true;
-      v.loop = true;
-      if (!asThumb) v.controls = true;
-      // show a frame even if autoplay is blocked
-      v.preload = "metadata";
-      v.addEventListener("loadedmetadata", () => {
-        try { v.currentTime = 0.1; } catch {}
-        if (asThumb) { v.autoplay = true; v.muted = true; v.loop = true; v.play().catch(()=>{}); }
-      });
-      return v;
-    }
-
-    function makeImage(url){
-      const img = document.createElement("img");
-      img.className = "media";
-      img.loading = "lazy";
-      img.src = url;
-      return img;
-    }
-
-    function makeCanvaIframe(url){
-      const u = new URL(url, location.href);
-      if (!u.searchParams.has("embed")) u.searchParams.set("embed","1");
+      v.src = withStart(src);
+      v.preload = "metadata"; v.muted = true; v.playsInline = true;
+      card.appendChild(v);
+    } else if (isCanva(src)) {
       const ifr = document.createElement("iframe");
-      ifr.src = u.toString();
-      ifr.setAttribute("frameborder","0");
-      ifr.setAttribute("allowfullscreen","true");
-      ifr.style.pointerEvents = "none"; // clicking opens lightbox instead
-      return ifr;
+      ifr.src = src; // already normalized with ?embed=1
+      card.appendChild(ifr);
+    } else {
+      const img = document.createElement("img");
+      img.src = src;
+      img.loading = "lazy";
+      card.appendChild(img);
     }
 
-    // pick best element for a URL (thumb vs lightbox)
-    function mediaEl(url, {thumb=false} = {}){
-      if (looksLikeCanva(url)) {
-        return thumb ? makeCanvaIframe(url) : (() => {
-          const a = document.createElement("a");
-          a.href = url; a.target="_blank"; a.rel="noopener";
-          a.style.color="#fff"; a.textContent="Open Canva design";
-          a.style.padding="16px";
-          return a;
-        })();
-      }
-      if (looksLikeVideoByExt(url) || looksLikeNotionFile(url)) {
-        return makeVideo(url, thumb);
-      }
-      return makeImage(url);
-    }
+    // caption
+    const cap = document.createElement("div");
+    cap.className = "cap";
+    const t = document.createElement("div");
+    t.className = "title";
+    t.textContent = it.name;
+    const d = document.createElement("div");
+    d.className = "date";
+    d.textContent = formatDate(it.date);
+    cap.append(t, d);
+    card.appendChild(cap);
 
-    function renderLightbox(){
-      viewer.innerHTML = "";
-      const url = lbItems[lbIndex];
-      const node = mediaEl(url, {thumb:false});
-      viewer.appendChild(node);
-      const multi = lbItems.length > 1;
-      prevBtn.style.visibility = multi ? "visible" : "hidden";
-      nextBtn.style.visibility = multi ? "visible" : "hidden";
-    }
+    // click -> lightbox gallery
+    card.addEventListener("click", () => openLightbox(it));
+    grid.appendChild(card);
+  }
+}
 
-    function openLightbox(item){
-      lbItems = item.media.slice();
-      lbIndex = 0;
-      lbTitle.textContent = `${fmtDate(item.date)} • ${item.name}`;
-      renderLightbox();
-      lb.classList.add("open");
-    }
+function isCanva(u){ try{ return new URL(u).hostname.includes("canva.com"); }catch{return false;} }
+function isVideo(u){ return /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(u); }
+function withStart(u){ return u.includes("#t=") ? u : (u + "#t=0.05"); }
+function formatDate(iso){ if(!iso) return ""; const d=new Date(iso); return d.toLocaleDateString(undefined,{month:"short", day:"numeric", year:"numeric"}); }
 
-    lbClose.onclick = () => lb.classList.remove("open");
-    prevBtn.onclick = () => { lbIndex = (lbIndex - 1 + lbItems.length) % lbItems.length; renderLightbox(); };
-    nextBtn.onclick = () => { lbIndex = (lbIndex + 1) % lbItems.length; renderLightbox(); };
-    lb.addEventListener("click", (e) => { if (e.target === lb) lb.classList.remove("open"); });
+/* Lightbox */
+const modal = document.getElementById("modal");
+const stage = document.getElementById("stage");
+const mname = document.getElementById("mname");
+const mdate = document.getElementById("mdate");
+document.getElementById("close").onclick = () => closeLightbox();
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+modal.addEventListener("click",(e)=>{ if(e.target===modal) closeLightbox(); });
 
-    async function fetchItems(){
-      const url = new URL(location.href);
-      const base = `${url.origin}${url.pathname.replace(/\/$/, "")}/api/notion`;
-      const p = platformSel.value || "All";
-      const api = `${base}?platform=${encodeURIComponent(p)}`;
-      const r = await fetch(api, { cache:"no-store" });
-      if (!r.ok) throw new Error(`Backend error ${r.status}`);
-      return r.json();
-    }
+function openLightbox(item){
+  current.items = item.media.slice(); // copy
+  current.idx = 0;
+  current.meta = { name:item.name, date: formatDate(item.date) };
+  renderStage();
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden","false");
+}
 
-    function render(items){
-      grid.innerHTML = "";
-      if (!items?.length) return;
+function closeLightbox(){
+  stage.innerHTML = "";
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden","true");
+}
 
-      items.forEach((it) => {
-        const card = document.createElement("div");
-        card.className = "card";
+function step(dir){
+  if(!current.items.length) return;
+  current.idx = (current.idx + dir + current.items.length) % current.items.length;
+  renderStage();
+}
 
-        const first = it.media[0] || "";
-        const thumbNode = mediaEl(first, {thumb:true});
-        card.appendChild(thumbNode);
+function renderStage(){
+  const src = current.items[current.idx];
+  stage.innerHTML = "";
+  let el;
+  if (isVideo(src)) {
+    el = document.createElement("video");
+    el.src = withStart(src);
+    el.controls = true; el.autoplay = true; el.muted = true; el.playsInline = true;
+  } else if (isCanva(src)) {
+    el = document.createElement("iframe");
+    el.src = src; // embedded canva
+  } else {
+    el = document.createElement("img");
+    el.src = src;
+  }
+  stage.appendChild(el);
+  mname.textContent = current.meta.name;
+  mdate.textContent = current.meta.date;
+}
 
-        const cap = document.createElement("div");
-        cap.className = "caption";
-        cap.textContent = `${fmtDate(it.date)} • ${it.name}`;
-        card.appendChild(cap);
-
-        card.onclick = () => openLightbox(it);
-        grid.appendChild(card);
-      });
-    }
-
-    async function load(){
-      try { const { items } = await fetchItems(); render(items); }
-      catch(err){ grid.innerHTML = `<div style="color:#b00020;padding:12px;background:#fee;border-radius:8px;">${err.message}</div>`; }
-    }
-
-    // init from ?platform=
-    (function syncFromQuery(){
-      const q = new URLSearchParams(location.search);
-      const qp = (q.get("platform") || "All").toLowerCase();
-      for (const opt of platformSel.options) if (opt.value.toLowerCase() === qp) platformSel.value = opt.value;
-    })();
-    platformSel.onchange = () => { const q = new URLSearchParams(location.search); q.set("platform", platformSel.value); history.replaceState(null,"",`?${q}`); load(); };
-    refreshBtn.onclick = load;
-
-    load();
-  </script>
+load(); // first paint
+</script>
 </body>
 </html>
