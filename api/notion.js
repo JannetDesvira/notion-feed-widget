@@ -1,97 +1,83 @@
 import { Client } from "@notionhq/client";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
-const DB_ID = process.env.NOTION_DATABASE_ID;
+const databaseId = process.env.NOTION_DATABASE_ID;
 
-/** helpers */
-const firstText = (p) =>
-  p?.title?.[0]?.plain_text ??
-  p?.rich_text?.[0]?.plain_text ??
-  "";
+/* ---------- helpers ---------- */
+const isTrue = (prop) => !!(prop && typeof prop.checkbox !== "undefined" && prop.checkbox);
+const rt = (prop) => (prop?.rich_text?.[0]?.plain_text ?? "");
+const urlish = (prop) => (prop?.url ?? rt(prop) ?? "");
 
-const getCheckbox = (p) => (typeof p?.checkbox === "boolean" ? p.checkbox : false);
-
-const getSelect = (p) => p?.select?.name ?? "";
-
-const getDate = (p) => p?.date?.start ?? null;
-
-const getURL = (p) => p?.url ?? p?.rich_text?.[0]?.plain_text ?? "";
-
-const getFiles = (p) =>
-  (p?.files ?? [])
+const fileUrls = (prop) => {
+  if (!prop?.files) return [];
+  return prop.files
     .map((f) => f.external?.url || f.file?.url)
     .filter(Boolean);
+};
 
-/** canva: normalize to viewable embed */
-const normalizeCanva = (url) => {
-  if (!url) return "";
-  // works for share links like https://www.canva.com/design/XXXX/view
-  // ensure /view and add ?embed to allow iframe
-  try {
-    const u = new URL(url);
-    if (!/canva\.com/.test(u.hostname)) return url;
-    if (!u.pathname.includes("/view")) u.pathname = u.pathname.replace(/\/edit|\/copy|\/share|\/present/g, "/view");
-    u.searchParams.set("embed", "1");
-    return u.toString();
-  } catch {
-    return url;
-  }
+const guessKind = (u) => {
+  const s = (u || "").toLowerCase();
+  if (s.includes("canva.com")) return "canva";
+  if (s.match(/\.(mp4|mov|webm|m4v)(\?|$)/)) return "video";
+  return "image";
 };
 
 export default async function handler(req, res) {
   try {
-    const platform = (req.query.platform || "All").toString();
-
-    const filters = [
-      { property: "Hide", checkbox: { equals: false } },
-      { property: "Publish Date", date: { is_not_empty: true } },
+    const filterParts = [
+      { property: "Hide", checkbox: { equals: false } }, // ok if property missing -> Notion treats as false
     ];
-    if (platform && platform !== "All") {
-      filters.push({ property: "Platform", select: { equals: platform } });
+
+    const platform = (req.query.platform || "").trim();
+    if (platform && platform.toLowerCase() !== "all") {
+      filterParts.push({
+        property: "Platform",
+        select: { equals: platform },
+      });
     }
 
-    const q = await notion.databases.query({
-      database_id: DB_ID,
-      filter: { and: filters },
-      sorts: [
-        // pinned first, then newest first to mimic IG/TikTok feeling
-        { property: "Pinned", direction: "descending" },
-        { property: "Publish Date", direction: "descending" },
-      ],
+    const query = await notion.databases.query({
+      database_id: databaseId,
+      filter: { and: filterParts },
+      sorts: [{ property: "Publish Date", direction: "descending" }],
     });
 
-    const items = q.results.map((page) => {
+    const items = query.results.map((page) => {
       const p = page.properties;
+      const source = p["Image Source"]?.select?.name || "";
+      let media = [];
 
-      const imageSource = getSelect(p["Image Source"]);
-      const media = [];
-
-      if (imageSource === "Image Attachment") {
-        media.push(...getFiles(p["Attachment"]));
-      } else if (imageSource === "Link") {
-        const u = getURL(p["Link"]);
-        if (u) media.push(u);
-      } else if (imageSource === "Canva Design") {
-        const u = normalizeCanva(getURL(p["Canva Link"]));
-        if (u) media.push(u);
+      if (source === "Image Attachment") {
+        media = fileUrls(p["Attachment"]);
+      } else if (source === "Link") {
+        const u = urlish(p["Link"]);
+        if (u) media = [u];
+      } else if (source === "Canva Design") {
+        const u = urlish(p["Canva Link"]);
+        if (u) media = [u];
       }
+
+      // label/type for each media
+      const mediaTyped = media.map((u) => ({ url: u, kind: guessKind(u) }));
 
       return {
         id: page.id,
-        name: firstText(p["Name"]) || "Untitled",
-        date: getDate(p["Publish Date"]),
-        platform: getSelect(p["Platform"]) || "All",
-        pinned: getCheckbox(p["Pinned"]),
-        imageSource,
-        media,
+        name: p["Name"]?.title?.[0]?.plain_text || "Untitled",
+        date: p["Publish Date"]?.date?.start || null,
+        platform: p["Platform"]?.select?.name || "All",
+        pinned: isTrue(p["Pinned"]),
+        media: mediaTyped,
       };
     })
-    // must actually have media to render
+    // no empty cards
     .filter((it) => it.media.length > 0);
+
+    // pinned first, then by date desc (already desc, but keep stable)
+    items.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
 
     res.status(200).json({ items });
   } catch (err) {
     console.error("API Error:", err);
-    res.status(500).json({ error: "Failed to load content." });
+    res.status(500).json({ error: "Failed to read Notion data" });
   }
 }
