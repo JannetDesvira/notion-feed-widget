@@ -1,0 +1,9 @@
+{
+  "name": "notion-feed-widget",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@notionhq/client": "^2.2.13"
+  }
+}
