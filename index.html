@@ -1,315 +1,180 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Notion Feed Widget</title>
   <style>
-    :root{
-      /* Tweak these to match your aesthetic */
-      --gap: 8px;            /* space between tiles */
-      --radius: 12px;        /* tile rounding */
-      --shadow: 0 1px 2px rgba(0,0,0,.06), 0 6px 18px rgba(0,0,0,.06);
-      --accent: #111;        /* header text */
-      --muted: #777;         /* subtle text */
-      --border: #ececec;     /* hairline */
-    }
-
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:#111; }
-
-    /* HEADER */
-    header {
-      display:flex; align-items:center; gap:10px;
-      padding:10px; border-bottom:1px solid var(--border);
-      position:sticky; top:0; background:#fff; z-index:5;
-    }
-    .brand { font-weight:600; color:var(--accent); margin-right:auto; font-size:14px; opacity:.9; }
-    select, button {
-      height:32px; padding:0 10px; border:1px solid var(--border); border-radius:10px; background:#fafafa; cursor:pointer; font-size:13px;
-    }
-    button:hover, select:hover { background:#f3f3f3; }
-
-    /* GRID */
-    main { padding:var(--gap); }
-    .grid {
-      display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap);
-    }
-    @media (max-width:900px){ .grid { grid-template-columns:repeat(2,1fr);} }
-    @media (max-width:600px){ .grid { grid-template-columns:1fr; } }
-
-    .card {
-      position:relative; overflow:hidden; border-radius:var(--radius);
-      aspect-ratio:1/1; background:#f5f5f5; box-shadow:var(--shadow);
-    }
-    .media { width:100%; height:100%; object-fit:cover; display:block; border:0; background:#000; }
-    .pin { position:absolute; right:8px; top:8px; font-size:16px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
-    .badge { position:absolute; left:8px; top:8px; background:rgba(0,0,0,.6); color:#fff; font-size:12px; padding:2px 6px; border-radius:999px; }
-    .hover {
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:8px; text-align:center; color:#fff; background:rgba(0,0,0,.42);
-      opacity:0; transition:opacity .18s ease;
-    }
-    .card:hover .hover { opacity:1; }
-
-    /* LIGHTBOX */
-    .lightbox {
-      position:fixed; inset:0; background:rgba(0,0,0,.9);
-      display:none; align-items:center; justify-content:center; z-index:9999;
-    }
-    .lightbox.open { display:flex; }
-    .lb-inner { width:min(94vw, 900px); height:min(90vh, 900px); position:relative; }
-    .slide { position:absolute; inset:0; display:none; }
-    .slide.active { display:block; }
-    .lb-media { width:100%; height:100%; object-fit:contain; background:#000; border:0; }
-    .lb-close, .nav {
-      position:absolute; top:12px; background:rgba(255,255,255,.12);
-      color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:12px; padding:6px 10px; cursor:pointer;
-      backdrop-filter: blur(6px);
-    }
-    .lb-close { right:12px; }
-    .nav { top:50%; transform:translateY(-50%); }
-    .prev { left:10px; }
-    .next { right:10px; }
-    .lb-counter {
-      position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-      color:#fff; font-size:13px; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:999px;
-    }
-
-    /* FOOTER */
-    footer {
-      border-top:1px solid var(--border); padding:10px; text-align:center; color:var(--muted); font-size:12px;
-    }
-    footer a { color:inherit; text-decoration:none; border-bottom:1px dotted currentColor; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 20px; color: #111; }
+    .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .card { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #f2f2f2; border-radius: 8px; overflow: hidden; cursor: pointer; }
+    .card img, .card video, .card iframe { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pill { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.65); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 999px; }
+    .error { padding: 12px; border: 1px solid #ffd1d1; background: #fff1f1; color: #a40000; border-radius: 8px; margin-top: 12px; }
+    button { padding: 6px 10px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor:pointer; }
+    select { border-radius: 8px; border: 1px solid #ddd; padding: 6px 8px; }
+    /* Lightbox */
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display:none; align-items: center; justify-content: center; z-index: 9999; }
+    .lightbox.visible { display:flex; }
+    .lb-inner { position: relative; width: min(92vw, 900px); height: min(92vh, 900px); background: #000; border-radius: 12px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    .lb-media { width: 100%; height: 100%; object-fit: contain; background:#000; }
+    .lb-close, .lb-prev, .lb-next { position: absolute; top: 10px; background: rgba(255,255,255,0.9); border:none; border-radius: 8px; padding: 6px 10px; cursor:pointer; }
+    .lb-close { right: 10px; }
+    .lb-prev, .lb-next { top: 50%; transform: translateY(-50%); }
+    .lb-prev { left: 10px; }
+    .lb-next { right: 10px; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand" id="brand" hidden>Feed Preview</div>
-
-    <!-- Platform Filter -->
-    <label style="font-size:12px;color:var(--muted)">Platform</label>
+  <div class="toolbar">
+    <label>Platform</label>
     <select id="platform">
-      <option value="">All</option>
+      <option>All</option>
       <option>Instagram</option>
-      <option>Tiktok</option>
-      <option>Facebook</option>
-      <option>Pinterest</option>
-      <option>X</option>
-      <option>LinkedIn</option>
-      <option>Others</option>
+      <option>TikTok</option>
     </select>
+    <button id="refresh">🔄 Refresh</button>
+  </div>
 
-    <!-- Refresh -->
-    <button id="refreshBtn">⟲ Refresh</button>
-  </header>
+  <div id="status"></div>
+  <div id="grid" class="grid"></div>
 
-  <main>
-    <div id="grid" class="grid"></div>
-  </main>
-
-  <!-- Optional footer (toggle with SHOW_FOOTER) -->
-  <footer id="footer" style="display:none">
-    Powered by <a href="#" target="_blank" rel="noreferrer">you</a>
-  </footer>
-
-  <!-- LIGHTBOX -->
-  <div id="lightbox" class="lightbox" aria-modal="true" role="dialog">
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox" aria-hidden="true">
     <div class="lb-inner">
-      <button class="lb-close" id="lbClose">✕</button>
-      <button class="nav prev" id="lbPrev">‹</button>
-      <button class="nav next" id="lbNext">›</button>
-      <div id="lbSlides"></div>
-      <div class="lb-counter" id="lbCounter"></div>
+      <button class="lb-close" id="lbClose">Close ✕</button>
+      <button class="lb-prev" id="lbPrev">◀</button>
+      <button class="lb-next" id="lbNext">▶</button>
+      <img id="lbImg" class="lb-media" alt=""/>
+      <video id="lbVideo" class="lb-media" controls style="display:none;"></video>
+      <iframe id="lbFrame" class="lb-media" style="display:none;" frameborder="0" allowfullscreen></iframe>
     </div>
   </div>
 
   <script>
-    /********** CONFIG **********/
-    const SHOW_FOOTER = false;       // set true to show footer
-    const FOOTER_TEXT = "Powered by You";
-    const FOOTER_LINK = "";          // put your URL if you want the footer clickable
+    const API = '/api/notion'; // same origin on Vercel
+    const grid = document.getElementById('grid');
+    const statusBox = document.getElementById('status');
+    const platformSel = document.getElementById('platform');
 
-    /********** HELPERS **********/
-    const isVideo = (url) => /\.(mp4|mov|webm|m4v|ogg)(\?|$)/i.test(url);
-    const isImage = (url) => /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(url);
+    // Lightbox state
+    const lb = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lbImg');
+    const lbVideo = document.getElementById('lbVideo');
+    const lbFrame = document.getElementById('lbFrame');
+    const lbPrev = document.getElementById('lbPrev');
+    const lbNext = document.getElementById('lbNext');
+    const lbClose = document.getElementById('lbClose');
+    let lbMedia = [];
+    let lbIndex = 0;
 
-    const toCanvaEmbed = (url) => {
-      try {
-        const u = new URL(url);
-        if (u.hostname.includes("canva.com") && !u.searchParams.get("embed")) {
-          u.searchParams.set("embed","1");
-        }
-        return u.toString();
-      } catch { return url; }
-    };
-
-    function makeThumbEl(source, url) {
-      if (source === "Canva Design") {
-        const iframe = document.createElement("iframe");
-        iframe.src = toCanvaEmbed(url);
-        iframe.className = "media";
-        iframe.loading = "lazy";
-        iframe.allowFullscreen = true;
-        return iframe;
-      }
-      if (isVideo(url)) {
-        const v = document.createElement("video");
-        v.src = url; v.className = "media"; v.muted = true; v.playsInline = true; v.autoplay = true; v.loop = true;
-        v.controls = false;
-        return v;
-      }
-      const img = document.createElement("img");
-      img.src = url; img.className = "media"; img.alt = "";
-      img.referrerPolicy = "no-referrer";
-      return img;
+    function showError(message, extra) {
+      statusBox.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'error';
+      div.innerHTML = `<strong>Backend error:</strong> ${message}${extra ? `<pre>${extra}</pre>` : ''}`;
+      statusBox.appendChild(div);
     }
 
-    function makeLightboxEl(source, url) {
-      if (source === "Canva Design") {
-        const iframe = document.createElement("iframe");
-        iframe.src = toCanvaEmbed(url);
-        iframe.className = "lb-media";
-        iframe.loading = "lazy";
-        iframe.allowFullscreen = true;
-        return iframe;
+    function render(items) {
+      statusBox.innerHTML = '';
+      grid.innerHTML = '';
+      if (!items.length) {
+        statusBox.innerHTML = '<div>No content yet. Add rows to your Notion database.</div>';
+        return;
       }
-      if (isVideo(url)) {
-        const v = document.createElement("video");
-        v.src = url; v.className = "lb-media"; v.controls = true; v.playsInline = true;
-        return v;
-      }
-      const img = document.createElement("img");
-      img.src = url; img.className = "lb-media"; img.alt = "";
-      img.referrerPolicy = "no-referrer";
-      return img;
-    }
-
-    /********** LIGHTBOX STATE **********/
-    const lb = {
-      root: document.getElementById("lightbox"),
-      slidesWrap: document.getElementById("lbSlides"),
-      counterEl: document.getElementById("lbCounter"),
-      idx: 0,
-      slides: [],
-      open(slides, startIdx=0){
-        this.slides = slides;
-        this.idx = startIdx;
-        this.slidesWrap.innerHTML = "";
-        slides.forEach((s, i) => {
-          const slide = document.createElement("div");
-          slide.className = "slide" + (i===startIdx ? " active" : "");
-          slide.appendChild(makeLightboxEl(s.source, s.url));
-          this.slidesWrap.appendChild(slide);
-        });
-        this.updateCounter();
-        this.root.classList.add("open");
-      },
-      close(){
-        this.root.classList.remove("open");
-        this.slidesWrap.innerHTML = "";
-      },
-      next(){ this.goto((this.idx+1) % this.slides.length); },
-      prev(){ this.goto((this.idx-1+this.slides.length) % this.slides.length); },
-      goto(i){
-        const nodes = this.slidesWrap.querySelectorAll(".slide");
-        if (!nodes.length) return;
-        nodes[this.idx]?.classList.remove("active");
-        nodes[i]?.classList.add("active");
-        this.idx = i;
-        this.updateCounter();
-      },
-      updateCounter(){
-        this.counterEl.textContent = `${this.idx+1} / ${this.slides.length}`;
-      }
-    };
-
-    document.getElementById("lbClose").addEventListener("click", () => lb.close());
-    document.getElementById("lbNext").addEventListener("click", () => lb.next());
-    document.getElementById("lbPrev").addEventListener("click", () => lb.prev());
-    document.addEventListener("keydown", (e) => {
-      if (!lb.root.classList.contains("open")) return;
-      if (e.key === "Escape") lb.close();
-      if (e.key === "ArrowRight") lb.next();
-      if (e.key === "ArrowLeft") lb.prev();
-    });
-    lb.root.addEventListener("click", (e) => {
-      if (e.target === lb.root) lb.close();
-    });
-
-    /********** DATA LOAD **********/
-    const grid = document.getElementById("grid");
-    const platformSel = document.getElementById("platform");
-
-    // Restore saved platform
-    const saved = localStorage.getItem("widget-platform");
-    if (saved) platformSel.value = saved;
-
-    async function load() {
-      const params = new URLSearchParams();
-      if (platformSel.value) params.set("platform", platformSel.value);
-      const res = await fetch("/api/notion" + (params.toString() ? `?${params}` : ""), { cache: "no-store" });
-      const { items = [] } = await res.json();
-
-      grid.innerHTML = "";
-
-      items.forEach((it) => {
-        const first = it.media[0];
-        if (!first) return;
-
-        const card = document.createElement("div");
-        card.className = "card";
-        if (it.pinned) {
-          const pin = document.createElement("div");
-          pin.className = "pin"; pin.textContent = "📌";
-          card.appendChild(pin);
-        }
-        if (it.status) {
-          const badge = document.createElement("div");
-          badge.className = "badge"; badge.textContent = it.status;
-          card.appendChild(badge);
+      items.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        if (item.pinned) {
+          const pill = document.createElement('div');
+          pill.className = 'pill';
+          pill.textContent = 'Pinned';
+          card.appendChild(pill);
         }
 
-        const el = makeThumbEl(it.source, first);
-        const hover = document.createElement("div");
-        hover.className = "hover";
-        hover.textContent = it.name || "";
-
+        const url = item.cover;
+        let el;
+        if (!url) {
+          el = document.createElement('div');
+          el.style.background = '#eee';
+        } else if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
+          el = document.createElement('video');
+          el.src = url;
+          el.autoplay = false;
+          el.muted = true;
+          el.playsInline = true;
+          el.controls = false;
+        } else if (/canva\.com/.test(url)) {
+          el = document.createElement('iframe');
+          el.src = url;
+        } else {
+          el = document.createElement('img');
+          el.src = url;
+          el.alt = item.name || '';
+          el.loading = 'lazy';
+        }
         card.appendChild(el);
-        card.appendChild(hover);
 
-        // Lightbox open: build slides = all media for this row
-        card.addEventListener("click", () => {
-          const slides = it.media.map((url) => ({ source: it.source, url }));
-          lb.open(slides, 0);
-        });
-
+        card.addEventListener('click', () => openLightbox(item.media));
         grid.appendChild(card);
       });
     }
 
-    document.getElementById("refreshBtn").addEventListener("click", load);
-    platformSel.addEventListener("change", () => {
-      localStorage.setItem("widget-platform", platformSel.value);
-      load();
-    });
+    function openLightbox(media) {
+      lbMedia = media || [];
+      lbIndex = 0;
+      updateLightbox();
+      lb.classList.add('visible');
+      lb.setAttribute('aria-hidden', 'false');
+    }
 
-    // Footer toggle
-    (function setupFooter(){
-      if (!SHOW_FOOTER) return;
-      const f = document.getElementById("footer");
-      f.style.display = "block";
-      if (FOOTER_TEXT) f.firstChild.textContent = FOOTER_TEXT + " ";
-      if (FOOTER_LINK) {
-        const a = f.querySelector("a");
-        a.href = FOOTER_LINK; a.textContent = FOOTER_TEXT || "Powered by You";
+    function updateLightbox() {
+      const url = lbMedia[lbIndex];
+      if (!url) return;
+      lbImg.style.display = 'none';
+      lbVideo.style.display = 'none';
+      lbFrame.style.display = 'none';
+      if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
+        lbVideo.src = url;
+        lbVideo.style.display = 'block';
+      } else if (/canva\.com/.test(url)) {
+        lbFrame.src = url;
+        lbFrame.style.display = 'block';
       } else {
-        f.querySelector("a").style.display = "none";
-        f.textContent = FOOTER_TEXT || "Powered by You";
+        lbImg.src = url;
+        lbImg.style.display = 'block';
       }
-    })();
+    }
 
-    // Initial load
+    lbPrev.onclick = () => { if (!lbMedia.length) return; lbIndex = (lbIndex - 1 + lbMedia.length) % lbMedia.length; updateLightbox(); };
+    lbNext.onclick = () => { if (!lbMedia.length) return; lbIndex = (lbIndex + 1) % lbMedia.length; updateLightbox(); };
+    lbClose.onclick = () => { lb.classList.remove('visible'); lb.setAttribute('aria-hidden','true'); };
+
+    async function load() {
+      try {
+        const p = platformSel.value;
+        const q = p && p !== 'All' ? `?platform=${encodeURIComponent(p)}` : '';
+        // use debug=1 once to see detailed errors if needed
+        const r = await fetch(`${API}${q}`);
+        const text = await r.text();
+        let data;
+        try { data = JSON.parse(text); } catch { throw new Error(`Non-JSON response:\n${text.slice(0,500)}`); }
+        if (!data.ok) {
+          showError(data.error || 'Unknown error', data.hint || '');
+          return;
+        }
+        render(data.items || []);
+      } catch (e) {
+        showError(e.message);
+      }
+    }
+
+    document.getElementById('refresh').onclick = load;
+    platformSel.onchange = load;
+
     load();
   </script>
 </body>
